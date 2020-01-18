@@ -21,8 +21,8 @@ were able to find jobs while I was left jobless. I felt the need to get better, 
 Thinking back, the reason I didn't find a job was probably that I started
 searching too late. Most companies have filled their internship quota by the time I started looking.
 It turned out that resentment wasn't a very effective fuel for me. I would put in an hour of work every day, even though
-I basically had nothing else to do. I wanted to build the compiler from the scratch as much as possible, and
-there were a lot of problems I had to focus and think about for extended periods of time. Watching Youtube videos
+I basically had nothing else to do. I wanted to build the compiler from scratch as much as possible, and
+there were a lot of problems I had to focus and think about for extended periods of time. Watching YouTube videos
 and playing games is much easier to do than thinking hard.
 
 As much as I wanted to force myself to work on a project so I can impress potential employers, not much work was done
