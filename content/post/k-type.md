@@ -37,7 +37,7 @@ keys after a few months of use. I don't have the means to repair the PCB, so
 I'm back to using the K-Type.
 
 When trying to add hotkeys to my old K-Type configuration, I found that it
-doesn't build any more. It was kind of a pain to coerce the updated build
+doesn't build anymore. It was kind of a pain to coerce the updated build
 system to pick up my custom configuration, but I got there. My
 [configuration][config] now lives in a single repository instead of being
 spread across two, which is nice.
