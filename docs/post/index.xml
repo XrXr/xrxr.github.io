@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on Thoughts from Alan</title>
+    <link>https://alanwu.space/post/</link>
+    <description>Recent content in Posts on Thoughts from Alan</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 24 Dec 2020 15:15:12 -0500</lastBuildDate><atom:link href="https://alanwu.space/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Hotkeys For Programmable Keyboards</title>
+      <link>https://alanwu.space/post/k-type/</link>
+      <pubDate>Thu, 24 Dec 2020 15:15:12 -0500</pubDate>
+      
+      <guid>https://alanwu.space/post/k-type/</guid>
+      <description>I have a K-Type, which is a programmable keyboard that lets me configure custom hotkeys. The configurations live with and on the keyboard, which is neat. Among other things, this lets my configuration work across different operating systems.
+My current configuration has several navigation hotkeys that activate with the CAPSLOCK key. CAPSLOCK+{j,k,l,;} send arrow keys, in a way similar to Vim&amp;rsquo;s default normal mode bindings. CAPSLOCK+{i,n} gives page up and down, while CAPSLOCK+{h,quote} sends HOME and END.</description>
+    </item>
+    
+    <item>
+      <title>My Compiler</title>
+      <link>https://alanwu.space/post/my-compiler/</link>
+      <pubDate>Sun, 20 Jan 2019 11:11:06 -0500</pubDate>
+      
+      <guid>https://alanwu.space/post/my-compiler/</guid>
+      <description>The first commit I made for my compiler was in 2016, it read &amp;ldquo;Here&amp;rsquo;s hoping I get this done in time&amp;rdquo;. I&amp;rsquo;m not sure if I met the deadline that message was referring to, but the compiler is certainly &amp;ldquo;done&amp;rdquo; now.
+Of course, no one in the right mind would use the compiler for anything serious, but the compiler compiles code, and I&amp;rsquo;ve made a simple graphical app launcher using it.</description>
+    </item>
+    
+  </channel>
+</rss>

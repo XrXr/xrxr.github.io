@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <title>Hotkeys For Programmable Keyboards</title>
+  <meta name="author" content="">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="icon" href="/favicon.png" />
+  <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
+
+  
+  <link rel="stylesheet" href="/style.css" />
+  
+  
+
+</head>
+
+<body class="">
+
+  
+
+  <div class="wrap">
+    <header class="mb">
+      <h1 class="h2 m-0"><a href="/">Thoughts from Alan</a></h1>
+      <p class="site-description"></p>
+    </header>
+
+
+<main>
+<article class="post">
+  <h1><a href="/post/k-type/" title="Hotkeys For Programmable Keyboards">Hotkeys For Programmable Keyboards</a></h1>
+  <p>I have a <a href="https://kono.store/products/k-type-mechanical-keyboard">K-Type</a>, which is a programmable keyboard that lets me
+configure custom hotkeys. The configurations live with and on the keyboard,
+which is neat. Among other things, this lets my configuration work across
+different operating systems.</p>
+<p>My current configuration has several navigation hotkeys that activate with the
+<code>CAPSLOCK</code> key. <code>CAPSLOCK+{j,k,l,;}</code> send arrow keys, in a way similar to Vim&rsquo;s
+default normal mode bindings. <code>CAPSLOCK+{i,n}</code> gives page up and down, while
+<code>CAPSLOCK+{h,quote}</code> sends <code>HOME</code> and <code>END</code>. This hotkey cluster lets me scroll
+and move cursors without having to take my right hand away from the home row
+(index finger on <code>j</code>).</p>
+<p>In addition to these, I have <code>CAPSLOCK+SPACE</code> sending <code>CONTROL</code> and
+<code>CAPSLOCK</code>+<code>S</code> sending <code>SHIFT</code>. One of my favorite use of these is pressing
+<code>CAPSLOCK+SPACE+{i,n}</code> to send <code>CONTROL+{PAGEUP,PAGEDOWN}</code>, which lets me
+switch between tabs in Firefox and Chrome without moving from home row. These
+also allow me to select text in input boxes.</p>
+<p>The K-Type has a bunch of RGB LEDs, which I prefer to be off most of the time.
+When I first tried to program it in 2017, the provided user-friendly tools
+didn&rsquo;t give a way to make the board boot with LEDs off. I found myself turning
+off the lights every time I booted up my computer.  Eventually, I bit the
+bullet and dug into the firmware&rsquo;s code and <a href="https://github.com/XrXr/kiibohd-controller/blob/8240bc27bc5bf834a9228c972e10c6d1337546ec/Scan/Devices/ISSILed/led_scan.c#L828">figured out</a> a
+way to have the lights off by default. Thankfully the firmware is all open
+source, the board is hard to brick, and I knew C well enough.</p>
+<p>I found my current <code>CAPSLOCK</code> setup on a 60% custom keyboard I built with the
+<a href="https://cannonkeys.com/products/preorder-instant60-pcb">Instant60</a>. It&rsquo;s too small to have dedicated keys for some
+navigation keys which pushed me to come up with a solution. Unfortunately,
+my 60% board broke. It started to frequently drop key presses for a column of
+keys after a few months of use. I don&rsquo;t have the means to repair the PCB, so
+I&rsquo;m back to using the K-Type.</p>
+<p>When trying to add hotkeys to my old K-Type configuration, I found that it
+doesn&rsquo;t build anymore. It was kind of a pain to coerce the updated build
+system to pick up my custom configuration, but I got there. My
+<a href="https://github.com/XrXr/kiibohd-controller/commit/ee286b741281dbf5a937a750483bfc3399f4725d">configuration</a> now lives in a single repository instead of being
+spread across two, which is nice.</p>
+
+  <p class="small gray"><time datetime="2020-12-24">Dec 24, 2020</time></p>
+</article>
+</main>
+</div>
+
+
+
+</body>
+</html>
