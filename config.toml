@@ -1,5 +1,8 @@
 baseURL = "https://alanwu.space/"
 languageCode = "en-us"
-theme = "heather"
+theme = "anubis"
 title = "Thoughts from Alan"
 publishDir = "docs"
+
+[params]
+style = "auto-without-switcher"
