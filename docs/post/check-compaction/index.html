@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+
+
+<html lang="en-us" data-theme="">
+<head>
+    
+        
+<meta charset="utf-8">
+<meta name="HandheldFriendly" content="True">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<title>Checking Ruby C extensions for object movement crashes - Thoughts from Alan</title>
+<meta name="description" content="">
+
+<link rel="icon" type="image/x-icon" href="https://alanwu.space/favicon.ico">
+<link rel="apple-touch-icon-precomposed" href="https://alanwu.space/favicon.png">
+
+
+
+    
+
+
+
+
+
+    
+    
+    
+
+    
+        <link rel="stylesheet" href="https://alanwu.space/css/style.e5ec8e96139fb72189ec799ef6fa88ee336396e113a051759e0ec060eadb5ecf.css" integrity="sha256-5eyOlhOftyGJ7Hme9vqI7jNjluEToFF1ng7AYOrbXs8=">
+    
+
+
+
+
+
+
+
+<meta property="og:title" content="Checking Ruby C extensions for object movement crashes" />
+<meta property="og:description" content="This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with GC.compact. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.
+Using automated tests to surface crashes If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://alanwu.space/post/check-compaction/" />
+<meta property="article:published_time" content="2021-01-26T19:58:24-05:00" />
+<meta property="article:modified_time" content="2021-01-26T19:58:24-05:00" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Checking Ruby C extensions for object movement crashes"/>
+<meta name="twitter:description" content="This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with GC.compact. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.
+Using automated tests to surface crashes If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite."/>
+
+
+
+
+
+
+
+
+
+
+
+    
+</head>
+<body>
+    <a class="skip-main" href="#main">Skip to main content</a>
+    <div class="container">
+        <header class="common-header"> 
+            
+                <h1 class="site-title">
+    <a href="/">Thoughts from Alan</a>
+</h1>
+
+    <nav></nav>
+
+
+
+            
+        </header>
+        <main id="main" tabindex="-1"> 
+            
+    
+    
+    <article class="post h-entry">
+        <header class="post-header">
+            <h1 class="p-name post-title">Checking Ruby C extensions for object movement crashes</h1>
+        </header>
+        <div class="content e-content">
+            <p>This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with <code>GC.compact</code>. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.</p>
+<h3 id="using-automated-tests-to-surface-crashes">Using automated tests to surface crashes</h3>
+<p>If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite.</p>
+<p>Add the following line such that it runs after all the code in the test suite finishes loading, but before any tests run. For libraries, this usually means inserting after <code>require &quot;library_name&quot;</code> during test setup.</p>
+<pre><code>GC.verify_compaction_references(double_heap: true, toward: :empty)
+</code></pre><p>Look for crash ouputs similar to that of <code>ruby -e 'Process.kill(:SEGV, $$)'</code> and unexpected <code>TypeErorr</code>s. APIs such as <code>rb_raise</code> can raise <code>TypeError</code> when given invalid references.</p>
+<h3 id="one-common-mistake">One common mistake</h3>
+<p>A common pitfall that causes object movement bugs is saving objects created with Ruby code into global variables. This is usually done with <code>rb_const_get</code> or similar in the extension&rsquo;s <code>Init_library_name</code> routine. Often the object saved into the C global is a class or a module defined in Ruby code.</p>
+<p>The GC can decide to move the object the C global refers to, invalidating the <code>VALUE</code>. The extenion is likely to trigger a crash when it makes use of stale references.</p>
+<p>Extensions can solve this problem by calling <code>rb_gc_register_mark_object</code> on objects created in Ruby that are saved into C globals. This API tells the GC to not move specific objects. It is worth noting that this API should be used sparingly, as limiting object movement makes compaction less effective. Also, the GC never collects objects passed to this API, so misuse can create memory leaks.</p>
+<p>The following C APIs create modules that never move. It is not necessary to use <code>rb_gc_register_mark_object</code> on objects created with these APIs:</p>
+<ul>
+<li><code>rb_define_class</code></li>
+<li><code>rb_define_module</code></li>
+<li><code>rb_define_class_under</code></li>
+<li><code>rb_define_module_under</code></li>
+</ul>
+<p>As an alternative to saving references into globals, extensions can fetch constants at the time they are needed using APIs such as <code>rb_const_get</code>.</p>
+<h3 id="bug-exists-even-in-absence-of-compaction">Bug exists even in absence of compaction</h3>
+<p>Extensions that follow the pattern above can cause crashes in Ruby releases that never move objects. The object saved into a constant in Ruby code can be removed from that constant via means such as <code>Module#remove_const</code> and be collected by the GC, invalidating the <code>VALUE</code> stored in the C global. See this <a href="https://github.com/msgpack/msgpack-ruby/issues/133">issue</a> for an example of this happening in a popular gem.</p>
+<h3 id="examples">Examples</h3>
+<p>Here is a demo that contains the discussed failure pattern. For an exercise, try to fix the object movement bug.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-ruby" data-lang="ruby"><span style="color:#75715e">#!/bin/env ruby</span>
+<span style="color:#75715e"># frozen_string_literal: true</span>
+<span style="color:#75715e"># This demo contains an object movement bug.</span>
+<span style="color:#75715e"># Run in an empty directory.</span>
+
+<span style="color:#75715e"># Write out code for C extension</span>
+<span style="color:#66d9ef">File</span><span style="color:#f92672">.</span>write(<span style="color:#e6db74">&#34;ext.c&#34;</span>, <span style="color:#e6db74">&lt;&lt;-EOM)
+</span><span style="color:#e6db74"></span><span style="color:#75715e">#include &#34;ruby.h&#34;</span>
+
+static <span style="color:#66d9ef">VALUE</span> cLuckError;
+
+<span style="color:#66d9ef">VALUE</span>
+luck_trial(<span style="color:#66d9ef">VALUE</span> self)
+{
+    rb_raise(cLuckError, <span style="color:#e6db74">&#34;insufficient luck&#34;</span>);
+}
+
+void
+<span style="color:#66d9ef">Init_bad</span>(void)
+{
+    cLuckError <span style="color:#f92672">=</span> rb_const_get(rb_cObject, rb_intern(<span style="color:#e6db74">&#34;LuckError&#34;</span>));
+    rb_define_global_function(<span style="color:#e6db74">&#34;luck_trial&#34;</span>, luck_trial, <span style="color:#ae81ff">0</span>);
+}
+<span style="color:#66d9ef">EOM</span>
+
+<span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LuckError</span> <span style="color:#f92672">&lt;</span> <span style="color:#66d9ef">StandardError</span>
+<span style="color:#66d9ef">end</span>
+
+<span style="color:#75715e"># Compile the C extension</span>
+<span style="color:#66d9ef">Process</span><span style="color:#f92672">.</span>spawn(<span style="color:#66d9ef">Gem</span><span style="color:#f92672">.</span>ruby, <span style="color:#e6db74">&#39;-rmkmf&#39;</span>, <span style="color:#e6db74">&#39;-e&#39;</span>, <span style="color:#e6db74">&#39;create_makefile(&#34;bad&#34;)&#39;</span>)
+<span style="color:#66d9ef">Process</span><span style="color:#f92672">.</span>wait
+<span style="color:#e6db74">`make clean`</span>
+<span style="color:#e6db74">`make`</span>
+
+<span style="color:#75715e"># Load the C extension. Initialization runs.</span>
+require_relative <span style="color:#e6db74">&#39;bad&#39;</span>
+
+<span style="color:#66d9ef">if</span> defined?(<span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>verify_compaction_references) <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;method&#39;</span>
+  <span style="color:#75715e"># Ask the GC to move objects around</span>
+  <span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>verify_compaction_references(<span style="color:#e6db74">double_heap</span>: <span style="color:#66d9ef">true</span>, <span style="color:#e6db74">toward</span>: <span style="color:#e6db74">:empty</span>)
+<span style="color:#66d9ef">else</span>
+  <span style="color:#75715e"># Trigger the bug without doing any object movement by making</span>
+  <span style="color:#75715e"># LuckError unreachable. Compatible with Ruby 2.5.x.</span>
+  <span style="color:#66d9ef">LuckError</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">nil</span>
+  <span style="color:#ae81ff">4</span><span style="color:#f92672">.</span>times { <span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start }
+<span style="color:#66d9ef">end</span>
+
+<span style="color:#75715e"># Use the extension</span>
+<span style="color:#66d9ef">begin</span>
+  luck_trial
+  puts <span style="color:#e6db74">&#34;success&#34;</span>
+<span style="color:#66d9ef">rescue</span> <span style="color:#f92672">=&gt;</span> e
+  puts <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">#{</span>e<span style="color:#f92672">.</span>class<span style="color:#e6db74">}</span><span style="color:#e6db74">: </span><span style="color:#e6db74">#{</span>e<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+<span style="color:#66d9ef">end</span>
+</code></pre></div><p>For real-world references, here are a few pull requests that fix object movement bugs in popular gems:</p>
+<ul>
+<li><a href="https://github.com/brianmario/mysql2/pull/1115">https://github.com/brianmario/mysql2/pull/1115</a></li>
+<li><a href="https://github.com/Shopify/semian/pull/275">https://github.com/Shopify/semian/pull/275</a></li>
+<li><a href="https://github.com/ohler55/oj/pull/638">https://github.com/ohler55/oj/pull/638</a></li>
+</ul>
+<h3 id="closing-thoughts">Closing thoughts</h3>
+<p>The GC&rsquo;s abaility to compact the heap allows for memory savings and can improve execution performance. It is key to the runtime&rsquo;s evolution. If you are a library maintainer, thank you for enabling people to use compaction!</p>
+<p><em>Special thanks to <a href="https://twitter.com/tenderlove/">Aaron Paterson</a> for helping with this guide and for developing the compacting GC</em></p>
+
+        </div>
+        
+
+
+<div class="post-info">
+    
+        <div class="post-date dt-published">2021-01-26</div>
+    
+    
+    <a class="post-hidden-url u-url" href="https://alanwu.space/post/check-compaction/">https://alanwu.space/post/check-compaction/</a>
+    <div class="post-hidden-author p-author"></div>
+
+    <div class="post-taxonomies">
+        
+            
+    </div>
+</div>
+
+    </article>
+
+    
+
+    
+
+    
+
+
+        </main>
+        <footer class="common-footer"></footer>
+    </div>
+</body>
+</html>

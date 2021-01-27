@@ -1,7 +1,6 @@
 ---
 title: "Checking Ruby C extensions for object movement crashes"
 date: 2021-01-26T19:58:24-05:00
-draft: true
 ---
 
 This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with `GC.compact`. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.

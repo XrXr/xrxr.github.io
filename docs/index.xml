@@ -3,18 +3,148 @@
   <channel>
     <title>Thoughts from Alan</title>
     <link>https://alanwu.space/</link>
-    <description>Recent content on Thoughts from Alan</description>
+    <description>Thoughts from Alan</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 24 Dec 2020 15:15:12 -0500</lastBuildDate><atom:link href="https://alanwu.space/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 26 Jan 2021 19:58:24 -0500</lastBuildDate>
+    
+    <atom:link href="https://alanwu.space/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Checking Ruby C extensions for object movement crashes</title>
+      <link>https://alanwu.space/post/check-compaction/</link>
+      <pubDate>Tue, 26 Jan 2021 19:58:24 -0500</pubDate>
+      
+      <guid>https://alanwu.space/post/check-compaction/</guid>
+      <description>&lt;p&gt;This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with &lt;code&gt;GC.compact&lt;/code&gt;. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.&lt;/p&gt;
+&lt;h3 id=&#34;using-automated-tests-to-surface-crashes&#34;&gt;Using automated tests to surface crashes&lt;/h3&gt;
+&lt;p&gt;If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite.&lt;/p&gt;
+&lt;p&gt;Add the following line such that it runs after all the code in the test suite finishes loading, but before any tests run. For libraries, this usually means inserting after &lt;code&gt;require &amp;quot;library_name&amp;quot;&lt;/code&gt; during test setup.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;GC.verify_compaction_references(double_heap: true, toward: :empty)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Look for crash ouputs similar to that of &lt;code&gt;ruby -e &#39;Process.kill(:SEGV, $$)&#39;&lt;/code&gt; and unexpected &lt;code&gt;TypeErorr&lt;/code&gt;s. APIs such as &lt;code&gt;rb_raise&lt;/code&gt; can raise &lt;code&gt;TypeError&lt;/code&gt; when given invalid references.&lt;/p&gt;
+&lt;h3 id=&#34;one-common-mistake&#34;&gt;One common mistake&lt;/h3&gt;
+&lt;p&gt;A common pitfall that causes object movement bugs is saving objects created with Ruby code into global variables. This is usually done with &lt;code&gt;rb_const_get&lt;/code&gt; or similar in the extension&amp;rsquo;s &lt;code&gt;Init_library_name&lt;/code&gt; routine. Often the object saved into the C global is a class or a module defined in Ruby code.&lt;/p&gt;
+&lt;p&gt;The GC can decide to move the object the C global refers to, invalidating the &lt;code&gt;VALUE&lt;/code&gt;. The extenion is likely to trigger a crash when it makes use of stale references.&lt;/p&gt;
+&lt;p&gt;Extensions can solve this problem by calling &lt;code&gt;rb_gc_register_mark_object&lt;/code&gt; on objects created in Ruby that are saved into C globals. This API tells the GC to not move specific objects. It is worth noting that this API should be used sparingly, as limiting object movement makes compaction less effective. Also, the GC never collects objects passed to this API, so misuse can create memory leaks.&lt;/p&gt;
+&lt;p&gt;The following C APIs create modules that never move. It is not necessary to use &lt;code&gt;rb_gc_register_mark_object&lt;/code&gt; on objects created with these APIs:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;rb_define_class&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;rb_define_module&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;rb_define_class_under&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;rb_define_module_under&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;As an alternative to saving references into globals, extensions can fetch constants at the time they are needed using APIs such as &lt;code&gt;rb_const_get&lt;/code&gt;.&lt;/p&gt;
+&lt;h3 id=&#34;bug-exists-even-in-absence-of-compaction&#34;&gt;Bug exists even in absence of compaction&lt;/h3&gt;
+&lt;p&gt;Extensions that follow the pattern above can cause crashes in Ruby releases that never move objects. The object saved into a constant in Ruby code can be removed from that constant via means such as &lt;code&gt;Module#remove_const&lt;/code&gt; and be collected by the GC, invalidating the &lt;code&gt;VALUE&lt;/code&gt; stored in the C global. See this &lt;a href=&#34;https://github.com/msgpack/msgpack-ruby/issues/133&#34;&gt;issue&lt;/a&gt; for an example of this happening in a popular gem.&lt;/p&gt;
+&lt;h3 id=&#34;examples&#34;&gt;Examples&lt;/h3&gt;
+&lt;p&gt;Here is a demo that contains the discussed failure pattern. For an exercise, try to fix the object movement bug.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/env ruby&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# frozen_string_literal: true&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# This demo contains an object movement bug.&lt;/span&gt;
+&lt;span style=&#34;color:#75715e&#34;&gt;# Run in an empty directory.&lt;/span&gt;
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# Write out code for C extension&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;File&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ext.c&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;lt;&amp;lt;-EOM)
+&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#include &amp;#34;ruby.h&amp;#34;&lt;/span&gt;
+
+static &lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; cLuckError;
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt;
+luck_trial(&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; self)
+{
+    rb_raise(cLuckError, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;insufficient luck&amp;#34;&lt;/span&gt;);
+}
+
+void
+&lt;span style=&#34;color:#66d9ef&#34;&gt;Init_bad&lt;/span&gt;(void)
+{
+    cLuckError &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; rb_const_get(rb_cObject, rb_intern(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;LuckError&amp;#34;&lt;/span&gt;));
+    rb_define_global_function(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;luck_trial&amp;#34;&lt;/span&gt;, luck_trial, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+}
+&lt;span style=&#34;color:#66d9ef&#34;&gt;EOM&lt;/span&gt;
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;StandardError&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# Compile the C extension&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;spawn(&lt;span style=&#34;color:#66d9ef&#34;&gt;Gem&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ruby, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-rmkmf&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-e&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;create_makefile(&amp;#34;bad&amp;#34;)&amp;#39;&lt;/span&gt;)
+&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;wait
+&lt;span style=&#34;color:#e6db74&#34;&gt;`make clean`&lt;/span&gt;
+&lt;span style=&#34;color:#e6db74&#34;&gt;`make`&lt;/span&gt;
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# Load the C extension. Initialization runs.&lt;/span&gt;
+require_relative &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;bad&amp;#39;&lt;/span&gt;
+
+&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; defined?(&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;method&amp;#39;&lt;/span&gt;
+  &lt;span style=&#34;color:#75715e&#34;&gt;# Ask the GC to move objects around&lt;/span&gt;
+  &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references(&lt;span style=&#34;color:#e6db74&#34;&gt;double_heap&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;toward&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;:empty&lt;/span&gt;)
+&lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;
+  &lt;span style=&#34;color:#75715e&#34;&gt;# Trigger the bug without doing any object movement by making&lt;/span&gt;
+  &lt;span style=&#34;color:#75715e&#34;&gt;# LuckError unreachable. Compatible with Ruby 2.5.x.&lt;/span&gt;
+  &lt;span style=&#34;color:#66d9ef&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;nil&lt;/span&gt;
+  &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;times { &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start }
+&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+
+&lt;span style=&#34;color:#75715e&#34;&gt;# Use the extension&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;begin&lt;/span&gt;
+  luck_trial
+  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;success&amp;#34;&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;rescue&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&amp;gt;&lt;/span&gt; e
+  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;class&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For real-world references, here are a few pull requests that fix object movement bugs in popular gems:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/brianmario/mysql2/pull/1115&#34;&gt;https://github.com/brianmario/mysql2/pull/1115&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/Shopify/semian/pull/275&#34;&gt;https://github.com/Shopify/semian/pull/275&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/ohler55/oj/pull/638&#34;&gt;https://github.com/ohler55/oj/pull/638&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;closing-thoughts&#34;&gt;Closing thoughts&lt;/h3&gt;
+&lt;p&gt;The GC&amp;rsquo;s abaility to compact the heap allows for memory savings and can improve execution performance. It is key to the runtime&amp;rsquo;s evolution. If you are a library maintainer, thank you for enabling people to use compaction!&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Special thanks to &lt;a href=&#34;https://twitter.com/tenderlove/&#34;&gt;Aaron Paterson&lt;/a&gt; for helping with this guide and for developing the compacting GC&lt;/em&gt;&lt;/p&gt;
+</description>
+    </item>
+    
     <item>
       <title>Hotkeys For Programmable Keyboards</title>
       <link>https://alanwu.space/post/k-type/</link>
       <pubDate>Thu, 24 Dec 2020 15:15:12 -0500</pubDate>
       
       <guid>https://alanwu.space/post/k-type/</guid>
-      <description>I have a K-Type, which is a programmable keyboard that lets me configure custom hotkeys. The configurations live with and on the keyboard, which is neat. Among other things, this lets my configuration work across different operating systems.
-My current configuration has several navigation hotkeys that activate with the CAPSLOCK key. CAPSLOCK+{j,k,l,;} send arrow keys, in a way similar to Vim&amp;rsquo;s default normal mode bindings. CAPSLOCK+{i,n} gives page up and down, while CAPSLOCK+{h,quote} sends HOME and END.</description>
+      <description>&lt;p&gt;I have a &lt;a href=&#34;https://kono.store/products/k-type-mechanical-keyboard&#34;&gt;K-Type&lt;/a&gt;, which is a programmable keyboard that lets me
+configure custom hotkeys. The configurations live with and on the keyboard,
+which is neat. Among other things, this lets my configuration work across
+different operating systems.&lt;/p&gt;
+&lt;p&gt;My current configuration has several navigation hotkeys that activate with the
+&lt;code&gt;CAPSLOCK&lt;/code&gt; key. &lt;code&gt;CAPSLOCK+{j,k,l,;}&lt;/code&gt; send arrow keys, in a way similar to Vim&amp;rsquo;s
+default normal mode bindings. &lt;code&gt;CAPSLOCK+{i,n}&lt;/code&gt; gives page up and down, while
+&lt;code&gt;CAPSLOCK+{h,quote}&lt;/code&gt; sends &lt;code&gt;HOME&lt;/code&gt; and &lt;code&gt;END&lt;/code&gt;. This hotkey cluster lets me scroll
+and move cursors without having to take my right hand away from the home row
+(index finger on &lt;code&gt;j&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;In addition to these, I have &lt;code&gt;CAPSLOCK+SPACE&lt;/code&gt; sending &lt;code&gt;CONTROL&lt;/code&gt; and
+&lt;code&gt;CAPSLOCK&lt;/code&gt;+&lt;code&gt;S&lt;/code&gt; sending &lt;code&gt;SHIFT&lt;/code&gt;. One of my favorite use of these is pressing
+&lt;code&gt;CAPSLOCK+SPACE+{i,n}&lt;/code&gt; to send &lt;code&gt;CONTROL+{PAGEUP,PAGEDOWN}&lt;/code&gt;, which lets me
+switch between tabs in Firefox and Chrome without moving from home row. These
+also allow me to select text in input boxes.&lt;/p&gt;
+&lt;p&gt;The K-Type has a bunch of RGB LEDs, which I prefer to be off most of the time.
+When I first tried to program it in 2017, the provided user-friendly tools
+didn&amp;rsquo;t give a way to make the board boot with LEDs off. I found myself turning
+off the lights every time I booted up my computer.  Eventually, I bit the
+bullet and dug into the firmware&amp;rsquo;s code and &lt;a href=&#34;https://github.com/XrXr/kiibohd-controller/blob/8240bc27bc5bf834a9228c972e10c6d1337546ec/Scan/Devices/ISSILed/led_scan.c#L828&#34;&gt;figured out&lt;/a&gt; a
+way to have the lights off by default. Thankfully the firmware is all open
+source, the board is hard to brick, and I knew C well enough.&lt;/p&gt;
+&lt;p&gt;I found my current &lt;code&gt;CAPSLOCK&lt;/code&gt; setup on a 60% custom keyboard I built with the
+&lt;a href=&#34;https://cannonkeys.com/products/preorder-instant60-pcb&#34;&gt;Instant60&lt;/a&gt;. It&amp;rsquo;s too small to have dedicated keys for some
+navigation keys which pushed me to come up with a solution. Unfortunately,
+my 60% board broke. It started to frequently drop key presses for a column of
+keys after a few months of use. I don&amp;rsquo;t have the means to repair the PCB, so
+I&amp;rsquo;m back to using the K-Type.&lt;/p&gt;
+&lt;p&gt;When trying to add hotkeys to my old K-Type configuration, I found that it
+doesn&amp;rsquo;t build anymore. It was kind of a pain to coerce the updated build
+system to pick up my custom configuration, but I got there. My
+&lt;a href=&#34;https://github.com/XrXr/kiibohd-controller/commit/ee286b741281dbf5a937a750483bfc3399f4725d&#34;&gt;configuration&lt;/a&gt; now lives in a single repository instead of being
+spread across two, which is nice.&lt;/p&gt;
+</description>
     </item>
     
     <item>
@@ -23,8 +153,44 @@ My current configuration has several navigation hotkeys that activate with the C
       <pubDate>Sun, 20 Jan 2019 11:11:06 -0500</pubDate>
       
       <guid>https://alanwu.space/post/my-compiler/</guid>
-      <description>The first commit I made for my compiler was in 2016, it read &amp;ldquo;Here&amp;rsquo;s hoping I get this done in time&amp;rdquo;. I&amp;rsquo;m not sure if I met the deadline that message was referring to, but the compiler is certainly &amp;ldquo;done&amp;rdquo; now.
-Of course, no one in the right mind would use the compiler for anything serious, but the compiler compiles code, and I&amp;rsquo;ve made a simple graphical app launcher using it.</description>
+      <description>&lt;p&gt;The first commit I made for my compiler was in 2016, it read &amp;ldquo;Here&amp;rsquo;s hoping I get this done in time&amp;rdquo;.
+I&amp;rsquo;m not sure if I met the deadline that message was referring to, but the compiler is certainly &amp;ldquo;done&amp;rdquo; now.&lt;/p&gt;
+&lt;p&gt;Of course, no one in the right mind would use the compiler for anything serious, but the &lt;a href=&#34;https://www.github.com/XrXr/alang&#34;&gt;compiler&lt;/a&gt; compiles code,
+and I&amp;rsquo;ve made a simple graphical &lt;a href=&#34;https://www.github.com/XrXr/souvenir&#34;&gt;app launcher&lt;/a&gt; using it.&lt;/p&gt;
+&lt;p&gt;I mostly want to talk about the human aspects of this project. I find a lot of technical stuff in the project interesting
+too, but as somebody who is very much a novice at building compilers, I don&amp;rsquo;t think I bring much to the
+table talking about compiler construction.&lt;/p&gt;
+&lt;h3 id=&#34;how-it-started&#34;&gt;How it started&lt;/h3&gt;
+&lt;p&gt;I started the project in the summer of 2016. As a co-op student, I was supposed to intern at a company. Everyone seemed
+to have found jobs for the summer, but I didn&amp;rsquo;t. I felt really bitter that people who I considered less competent than me
+were able to find jobs while I was left jobless. I felt the need to get better, I felt resentment.&lt;/p&gt;
+&lt;p&gt;Thinking back, the reason I didn&amp;rsquo;t find a job was probably that I started
+searching too late. Most companies have filled their internship quota by the time I started looking.
+It turned out that resentment wasn&amp;rsquo;t a very effective fuel for me. I would put in an hour of work every day, even though
+I basically had nothing else to do. I wanted to build the compiler from scratch as much as possible, and
+there were a lot of problems I had to focus and think about for extended periods of time. Watching YouTube videos
+and playing games is much easier to do than thinking hard.&lt;/p&gt;
+&lt;p&gt;As much as I wanted to force myself to work on a project so I can impress potential employers, not much work was done
+on the compiler during the summer of 2016.&lt;/p&gt;
+&lt;h3 id=&#34;reboot-and-critical-mass&#34;&gt;Reboot and critical mass&lt;/h3&gt;
+&lt;p&gt;I stopped working on the compiler when the summer ended and didn&amp;rsquo;t work on it at all for most of 2017. In December of
+2017, I got the idea to work on the compiler again. I wanted to prove to myself that I can build a compiler, I also
+wanted a sort of souvenir for my time at the university. Jonathan Blow&amp;rsquo;s compiler development livestreams were also a source of inspiration.&lt;/p&gt;
+&lt;p&gt;I got loops and procedures working in December. These two features, along with the support for conditionals I implemented in 2016, made the compiler feel tangible and actually sort of usable. Working on the compiler didn&amp;rsquo;t feel like a drag anymore, every commit felt like real progress.&lt;/p&gt;
+&lt;h3 id=&#34;how-it-got-finished&#34;&gt;How it got finished&lt;/h3&gt;
+&lt;p&gt;I graduated from school in April of 2018. I had the privilege to take a 4-month break before starting work, so I used a lot
+of that time on the compiler. The compiler presented more and more interesting problems as it matured. Even though I reached my original goal of making &lt;a href=&#34;https://www.github.com/XrXr/souvenir&#34;&gt;an app launcher&lt;/a&gt; using my language, I kept working on the compiler because it proved to be an interesting sandbox for me to try out different ideas. The world was my oyster and I had the freedom and time to implement whatever I wanted. I had fun working on the compiler.&lt;/p&gt;
+&lt;h3 id=&#34;was-it-worth-it&#34;&gt;Was it worth it?&lt;/h3&gt;
+&lt;p&gt;I am proud of my compiler. The code is nothing I would consider exemplary. Many would probably call it &amp;ldquo;unmaintainable&amp;rdquo;, and they would be right.
+However, I&amp;rsquo;m still proud of the project. I learned a lot working on this project and part of what I learned was why some of the decisions
+I made in the compiler were terrible. If I were to work on this compiler again, the first thing I would do is rewrite many
+parts of it.&lt;/p&gt;
+&lt;p&gt;I feel that I have overcome many obstacles and came out of the other side with two pieces of real, usable software.
+&lt;a href=&#34;https://www.github.com/XrXr/souvenir&#34;&gt;souvenir&lt;/a&gt;, the application launcher I made using the compiler, is installed on my machine at home and I use it every day.&lt;/p&gt;
+&lt;p&gt;I think I will always look back at the time I worked on the compiler fondly. Not many people get to write software
+just for the sake of it and I doubt I will get to do something like this again anytime soon. I am thankful for everything
+that contributed to this unique experience.&lt;/p&gt;
+</description>
     </item>
     
   </channel>

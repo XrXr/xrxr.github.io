@@ -3,8 +3,12 @@
   <channel>
     <title>Categories on Thoughts from Alan</title>
     <link>https://alanwu.space/categories/</link>
-    <description>Recent content in Categories on Thoughts from Alan</description>
+    <description>Thoughts from Alan (Categories)</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language><atom:link href="https://alanwu.space/categories/index.xml" rel="self" type="application/rss+xml" />
+    <language>en-us</language>
+    
+    <atom:link href="https://alanwu.space/categories/index.xml" rel="self" type="application/rss+xml" />
+    
+    
   </channel>
 </rss>
