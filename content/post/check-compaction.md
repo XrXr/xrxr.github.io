@@ -21,7 +21,7 @@ Look for crash ouputs similar to that of `ruby -e 'Process.kill(:SEGV, $$)'` and
 
 A common pitfall that causes object movement bugs is saving objects created with Ruby code into global variables. This is usually done with `rb_const_get` or similar in the extension's `Init_library_name` routine. Often the object saved into the C global is a class or a module defined in Ruby code.
 
-The GC can decide to move the object the C global refers to, invalidating the `VALUE`. The extenion is likely to trigger a crash when it makes use of stale references.
+The GC can decide to move the object the C global refers to, invalidating the `VALUE`. The extension is likely to trigger a crash when it makes use of stale references.
 
 Extensions can solve this problem by calling `rb_gc_register_mark_object` on objects created in Ruby that are saved into C globals. This API tells the GC to not move specific objects. It is worth noting that this API should be used sparingly, as limiting object movement makes compaction less effective. Also, the GC never collects objects passed to this API, so misuse can create memory leaks.
 
