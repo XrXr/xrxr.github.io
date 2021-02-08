@@ -96,7 +96,7 @@ Using automated tests to surface crashes If your test suite runs under Ruby 2.7.
 </code></pre><p>Look for crash ouputs similar to that of <code>ruby -e 'Process.kill(:SEGV, $$)'</code> and unexpected <code>TypeErorr</code>s. APIs such as <code>rb_raise</code> can raise <code>TypeError</code> when given invalid references.</p>
 <h3 id="one-common-mistake">One common mistake</h3>
 <p>A common pitfall that causes object movement bugs is saving objects created with Ruby code into global variables. This is usually done with <code>rb_const_get</code> or similar in the extension&rsquo;s <code>Init_library_name</code> routine. Often the object saved into the C global is a class or a module defined in Ruby code.</p>
-<p>The GC can decide to move the object the C global refers to, invalidating the <code>VALUE</code>. The extenion is likely to trigger a crash when it makes use of stale references.</p>
+<p>The GC can decide to move the object the C global refers to, invalidating the <code>VALUE</code>. The extension is likely to trigger a crash when it makes use of stale references.</p>
 <p>Extensions can solve this problem by calling <code>rb_gc_register_mark_object</code> on objects created in Ruby that are saved into C globals. This API tells the GC to not move specific objects. It is worth noting that this API should be used sparingly, as limiting object movement makes compaction less effective. Also, the GC never collects objects passed to this API, so misuse can create memory leaks.</p>
 <p>The following C APIs create modules that never move. It is not necessary to use <code>rb_gc_register_mark_object</code> on objects created with these APIs:</p>
 <ul>
