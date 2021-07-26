@@ -6,10 +6,1361 @@
     <description>Thoughts from Alan</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 26 Jan 2021 19:58:24 -0500</lastBuildDate>
+    <lastBuildDate>Thu, 22 Jul 2021 06:27:34 -0400</lastBuildDate>
     
     <atom:link href="https://alanwu.space/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Write barriers and an old Ruby bug</title>
+      <link>https://alanwu.space/post/write-barrier/</link>
+      <pubDate>Thu, 22 Jul 2021 06:27:34 -0400</pubDate>
+      
+      <guid>https://alanwu.space/post/write-barrier/</guid>
+      <description>&lt;p&gt;Here is a program that crashes Ruby 2.7.0:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
+&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The crash message is scary and subtly hints at the presence of a bug:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[BUG] try to mark T_NONE object
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.&lt;/p&gt;
+&lt;h2 id=&#34;is-it-a-bug-in-the-garbage-collector&#34;&gt;Is it a bug in the garbage collector?&lt;/h2&gt;
+&lt;p&gt;Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with &lt;code&gt;--disable-gems&lt;/code&gt;, it&amp;rsquo;s clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that &lt;code&gt;gc.c&lt;/code&gt; initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty for this crash? It turns out, there is a method, &lt;code&gt;GC.verify_internal_consistency&lt;/code&gt; that can help us out.&lt;/p&gt;
+&lt;p&gt;Adding a call to this method right after the call to &lt;code&gt;transform_values!&lt;/code&gt; in our reproducer, we get a different message:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;verify_internal_consistency_reachable_i: WB miss (O-&amp;gt;Y) T_HASH -&amp;gt; T_OBJECT
+crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Okay, it looks like some invariant that the GC cares about is not upheld, but what is a &amp;ldquo;WB miss&amp;rdquo;?&lt;/p&gt;
+&lt;h2 id=&#34;incremental-mark-and-sweep&#34;&gt;Incremental mark and sweep&lt;/h2&gt;
+&lt;p&gt;WB stands for write barrier so &lt;code&gt;gc_verify_internal_consistency&lt;/code&gt; is telling us that there is a &amp;ldquo;write barrier miss&amp;rdquo;. To understand what write barriers are and what they are for, we first need to undertand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. &amp;ldquo;Stop-the-world&amp;rdquo; sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. &lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;style&gt;
+.hidden {
+    display: none;
+}
+&lt;/style&gt;
+
+&lt;div id=&#34;al-svg-1&#34;&gt;
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+            .active-slide &gt; rect {
+                stroke: #4477AA;
+            }
+            .active-slide &gt; text {
+                fill: #4477AA;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;puts(&#34;foo&#34;)&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34; &gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34; &gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;GC.start&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;0.7em&#34;&gt;
+            &lt;animate id=root1 attributeName=y dur=&#34;1.0s&#34; values=&#34;0.7em;4.3em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root1.begin /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=&#34;root1.begin+0.3s&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black /&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=&#34;root1.begin+0.6s&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=&#34;root1.begin+0.9&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34;&gt;Code allocates objects&lt;/text&gt;
+
+        &lt;a xlink:href=&#34;#stop-the-world-1&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;121&#34; width=&#34;16&#34; height=&#34;16&#34; fill=white stroke=#4477AA&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;129&#34; font-size=10 text-anchor=middle textLength=10 fill=#4477AA&gt;1&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-2&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;142&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;150&#34; font-size=10 text-anchor=middle textLength=10 &gt;2&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-3&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;163&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=none&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;171&#34; font-size=10 text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;puts(&#34;foo&#34;)&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34; &gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34; &gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;GC.start&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root2 attributeName=y dur=&#34;1.0s&#34; values=&#34;4.3em;5.1em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#CCBB44 stroke=black&gt;
+                &lt;animate begin=&#34;root2.begin&#34; attributeName=fill values=&#34;#CCBB44; #CCBB44; #CCBB44; #228833&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.8;1&#34; /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+
+        &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black&gt;
+            &lt;animate attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze begin=&#34;root2.begin+1&#34; /&gt;
+            &lt;animate attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; fill=freeze begin=&#34;root2.begin+3.5&#34; /&gt;
+        &lt;/rect&gt;
+        &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+        &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+            &lt;animate begin=&#34;root2.begin&#34; attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;animate begin=&#34;root2.begin&#34; attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+        &lt;/line&gt;
+
+        &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black&gt;
+            &lt;animate begin=&#34;root2.begin+1&#34; attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze /&gt;
+            &lt;animate begin=&#34;root2.begin+3.5&#34; attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; fill=freeze /&gt;
+        &lt;/rect&gt;
+        &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+        &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black&gt;
+            &lt;animate begin=&#34;root2.begin&#34; attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;animate begin=&#34;root2.begin&#34; attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+        &lt;/line&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34;&gt;GC runs&lt;/text&gt;
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Starts knowing `foo` needs marking&lt;/text&gt;
+
+        &lt;a xlink:href=&#34;#stop-the-world-1&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;121&#34; width=&#34;16&#34; height=&#34;16&#34; fill=white stroke=black&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;129&#34; font-size=10 text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-2&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;142&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=#4477AA fill=white&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;150&#34; font-size=10 text-anchor=middle textLength=10 fill=#4477AA&gt;2&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-3&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;163&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=none&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;171&#34; font-size=10 text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+        &lt;/a&gt;
+
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;puts(&#34;foo&#34;)&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34; &gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34; &gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;GC.start&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;5.1em&#34;&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+
+        &lt;rect width=50 height=20 x=200 y=100 fill=#228833 stroke=black&gt;
+        &lt;/rect&gt;
+        &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+        &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+        &lt;/line&gt;
+
+        &lt;rect width=50 height=20 x=238 y=130 fill=#228833 stroke=black&gt;
+        &lt;/rect&gt;
+        &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+        &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black&gt;
+        &lt;/line&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Done. &#34;first&#34; can be released&lt;/text&gt;
+
+        &lt;a xlink:href=&#34;#stop-the-world-1&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;121&#34; width=&#34;16&#34; height=&#34;16&#34; fill=white stroke=black&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;129&#34; font-size=10 text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-2&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;142&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;150&#34; font-size=10 text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+        &lt;/a&gt;
+        &lt;a xlink:href=&#34;#stop-the-world-3&#34;&gt;
+            &lt;rect y=&#34;170&#34; x=&#34;163&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=#4477AA fill=none&gt;&lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; y=&#34;182&#34; x=&#34;171&#34; font-size=10 text-anchor=middle fill=#4477AA textLength=10&gt;3&lt;/text&gt;
+        &lt;/a&gt;
+
+    &lt;/svg&gt;
+&lt;/div&gt;
+
+
+&lt;p&gt;This works okay, with one disadvantage: when there are many objects alive, the GC could pause Ruby code execution for an unacceptably long amount of time. Pausing for just 17 milliseconds in a video game could be devastating as that can easily make the game miss its frame rate target.&lt;/p&gt;
+&lt;p&gt;To deal with this problem, we could break up the work the GC has to do into chunks and interleave them with Ruby code execution. To go back to the video game example, instead of pausing for say 17 milliseconds a single time, we pause for 1 millisecond 17 times, allowing Ruby code to execute between pauses. If the game has a 17 milliseconds to render each frame, instead of taking up 17 milliseconds once in a while, blowing through the frame time budget, the GC now takes up 1 millisecond once in a while. The GC potentially takes longer to release garbage objects, because the total amount of work is still the same as before, but that should be okay for a lot of applications.&lt;/p&gt;
+
+&lt;div id=&#34;al-svg-2&#34;&gt;
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = []&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[0] &lt;&lt; &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root3 attributeName=y dur=&#34;1.0s&#34; values=&#34;.8em;2.6em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+            &lt;animate begin=root3.begin attributeName=opacity dur=1.7s values=&#34;0;1&#34; /&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=none stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root3.begin+0.3 fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=200 y=95 fill=none stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=105 dominant-baseline=middle font-size=10 text-anchor=middle&gt;[]&lt;/text&gt;
+            &lt;line x1=225 y1=95 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=&#34;root3.begin+0.7&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=none stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=225 y2=115 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code allocates objects&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = []&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[0] &lt;&lt; &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root4 attributeName=y dur=&#34;1.0s&#34; values=&#34;2.6em;3.4em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=none stroke=black&gt;
+                &lt;animate begin=root4.begin attributeName=fill values=&#34;#CCBB44; #CCBB44; #CCBB44; #228833&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.8;1&#34; /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=95 fill=none stroke=black&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze begin=root4.begin+1 /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=105 dominant-baseline=middle font-size=10 text-anchor=middle&gt;[]&lt;/text&gt;
+            &lt;line x1=225 y1=95 x2=255 y2=80 stroke=black&gt;
+                &lt;animate begin=root4.begin attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+                &lt;animate begin=root4.begin attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=none stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=225 y2=115 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;GC runs for a bit and stops halfway&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = []&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[0] &lt;&lt; &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root5 attributeName=y dur=&#34;1.0s&#34; values=&#34;3.4em;4.3em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=95 fill=#CCBB44 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=105 dominant-baseline=middle font-size=10 text-anchor=middle&gt;[]&lt;/text&gt;
+            &lt;line x1=225 y1=95 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=none stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=225 y2=115 stroke=black&gt;
+            &lt;/line&gt;
+            &lt;animate begin=root5.begin attributeName=opacity dur=1.7s values=&#34;0;1&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code resumes&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = []&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[0] &lt;&lt; &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root6 attributeName=y dur=&#34;1.0s&#34; values=&#34;4.3em;5.1em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=180 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=205 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=95 fill=#CCBB44 stroke=black&gt;
+                &lt;animate begin=root6.begin attributeName=fill values=&#34;#CCBB44; #CCBB44; #CCBB44; #228833&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.8;1&#34; /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=105 dominant-baseline=middle font-size=10 text-anchor=middle&gt;[]&lt;/text&gt;
+            &lt;line x1=225 y1=95 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=none stroke=black&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze begin=root6.begin+1 /&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; fill=freeze begin=root6.begin+3.2 /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=225 y2=115 stroke=black&gt;
+                &lt;animate begin=root6.begin attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+                &lt;animate begin=root6.begin attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;GC resumes and completes&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+&lt;/div&gt;
+
+
+&lt;h2 id=&#34;write-barriers&#34;&gt;Write barriers&lt;/h2&gt;
+&lt;p&gt;Great, we now have an incremental GC but we have also introduced a new problem. What happens if we finish marking an object &lt;code&gt;O&lt;/code&gt;, let Ruby code execute, and the Ruby code associates &lt;code&gt;O&lt;/code&gt; with an object &lt;code&gt;J&lt;/code&gt; that would otherwise be unreachable?&lt;/p&gt;
+
+&lt;div id=&#34;al-svg-3&#34;&gt;
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=80&gt;Missing write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root7 attributeName=y dur=&#34;1.0s&#34; values=&#34;0.8em;2.6em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+            &lt;animate begin=root7.begin attributeName=opacity dur=1.7s values=&#34;0;1&#34; /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root7.begin+0.3 fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black /&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root7.begin+0.6 fill=freeze /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code runs&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#missing-wb-1&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#missing-wb-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#missing-wb-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#missing-wb-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=80&gt;Missing write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root8 attributeName=y dur=&#34;1.0s&#34; values=&#34;2.6em;3.4em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=none stroke=black&gt;
+                &lt;animate begin=root8.begin attributeName=fill values=&#34;#CCBB44; #CCBB44; #CCBB44; #228833&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.8;1&#34; /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze begin=root8.begin+1 /&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; fill=freeze begin=root8.begin+3.1 /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+                &lt;animate begin=root8.begin attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+                &lt;animate begin=root8.begin attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;GC runs and finishes marking {}&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=80&gt;Missing write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root9 attributeName=y dur=&#34;1.0s&#34; values=&#34;3.4em;4.3em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+            &lt;animate begin=root9.begin attributeName=opacity dur=1.7s values=&#34;0;1&#34; fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code adds new reference&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=80&gt;Missing write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root10 attributeName=y dur=&#34;1.0s&#34; values=&#34;4.3em;5.0em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;&#34;third&#34; incorrectly treated as garbage&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#incremental-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#incremental-4&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+&lt;/div&gt;
+
+
+&lt;p&gt;We know &lt;code&gt;J&lt;/code&gt; is alive since &lt;code&gt;O&lt;/code&gt; is alive and all objects referenced by alive objects are also alive. However &lt;code&gt;O&lt;/code&gt; is already marked, so the GC will not mark it again to see that &lt;code&gt;O&lt;/code&gt; now refers to an object it didn&amp;rsquo;t see the first time &lt;code&gt;O&lt;/code&gt; was marked. Nevertheless, the GC cannot treat &lt;code&gt;J&lt;/code&gt; as garbage. We need some way to address this problem.&lt;/p&gt;
+&lt;p&gt;We could make the Ruby code inform the GC every time it associates an object with another one. This way, when the Ruby code makes changes to an object the GC already marked the GC could be aware of objects that it potentially were unaware of at the time of marking:&lt;/p&gt;
+
+&lt;div id=&#34;al-svg-4&#34;&gt;
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=65&gt;With write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root11 attributeName=y dur=&#34;1.0s&#34; values=&#34;0.8em;2.6em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+            &lt;animate begin=root11.begin attributeName=opacity dur=1.7s values=&#34;0;1&#34; /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root11.begin+0.3 fill=freeze /&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black /&gt;
+            &lt;animate attributeName=opacity dur=1.7s values=&#34;0;1&#34; begin=root11.begin+0.6 fill=freeze /&gt;
+        &lt;/g&gt;
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code runs&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#write-barrier-1&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textWidth=65&gt;With write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root12 attributeName=y dur=&#34;1.0s&#34; values=&#34;2.6em;3.4em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=none stroke=black&gt;
+                &lt;animate begin=root12.begin attributeName=fill values=&#34;#CCBB44; #CCBB44; #CCBB44; #228833&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.8;1&#34; /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=white stroke=black&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;white;#CCBB44&#34; fill=freeze begin=&#34;root12.begin+1&#34; /&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; fill=freeze begin=root12.begin+3.1 /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+                &lt;animate begin=root12.begin attributeName=stroke values=&#34;black; #CCBB44; #CCBB44; black&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+                &lt;animate begin=root12.begin attributeName=stroke-width values=&#34;1; 3; 3; 1&#34; fill=freeze dur=&#34;3s&#34; keyTimes=&#34;0;0.33;0.66;1&#34; /&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;GC runs and finishes marking {}&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#write-barrier-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-2&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textWidth=65&gt;With write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root13 attributeName=y dur=&#34;1.0s&#34; values=&#34;3.4em;4.3em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;g opacity=0&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=white stroke=black&gt;
+                &lt;animate attributeName=fill dur=0.8s values=&#34;white;#CCBB44&#34; begin=root13.begin+1.6 fill=freeze /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;animate attributeName=opacity dur=1.0s values=&#34;0;1&#34; fill=freeze begin=root13.begin /&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black&gt;
+                &lt;animate attributeName=stroke-width dur=0.8s values=&#34;1;2.5;1&#34; begin=root13.begin+1 fill=freeze /&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;Code adds new reference with write barrier&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#write-barrier-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-3&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-4&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+
+    &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; class=hidden&gt;
+        &lt;style&gt;
+            .al-code {
+                font-family: monospace;
+            }
+        &lt;/style&gt;
+        &lt;rect width=300 height=200 fill=white stroke=&#34;grey&#34; stroke-width=&#34;5px&#34; /&gt;
+
+        &lt;text class=al-code font-size=6 y=195 x=6 textLength=65&gt;With write barrier&lt;/text&gt;
+
+        &lt;g transform=&#34;translate(25 10)&#34;&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;0em&#34;&gt;foo = &#34;first&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;1em&#34;&gt;foo = {}&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;2em&#34;&gt;foo[0] = &#34;second&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;3em&#34;&gt;# GC step&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;4em&#34;&gt;foo[1] = &#34;third&#34;&lt;/text&gt;
+            &lt;text class=&#34;al-code&#34; font-size=15 y=&#34;1em&#34; dy=&#34;5em&#34;&gt;# GC step&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;rect fill=&#34;#EE6677&#34; width=&#34;6&#34; height=&#34;6&#34; rx=&#34;1&#34; x=&#34;13&#34; y=&#34;1.3em&#34;&gt;
+            &lt;animate id=root14 attributeName=y dur=&#34;1.0s&#34; values=&#34;4.3em;5.0em&#34; fill=freeze calcMode=spline keySplines=&#34;0.23 0.73 0.7 1&#34; /&gt;
+        &lt;/rect&gt;
+
+        &lt;text textAnchor=middle x=13 y=120 font-size=10 text-decoration=underline&gt;Legend&lt;/text&gt;
+        &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
+        &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
+        &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
+        &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=190 y=20 fill=white stroke=black /&gt;
+            &lt;text class=&#34;al-code&#34; x=215 y=32 font-size=11 textLength=40 text-anchor=middle&gt;&#34;first&#34;&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=230 y=60 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=255 y=73 font-size=11 text-anchor=middle&gt;{}&lt;/text&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=200 y=100 fill=#228833 stroke=black&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=225 y=112 font-size=10 textLength=45 text-anchor=middle&gt;&#34;second&#34;&lt;/text&gt;
+            &lt;line x1=225 y1=100 x2=255 y2=80 stroke=black&gt;
+            &lt;/line&gt;
+        &lt;/g&gt;
+
+        &lt;g&gt;
+            &lt;rect width=50 height=20 x=238 y=130 fill=#CCBB44 stroke=black&gt;
+                &lt;animate attributeName=fill dur=1s values=&#34;#CCBB44;#228833&#34; begin=root14.begin+0.5 fill=freeze /&gt;
+            &lt;/rect&gt;
+            &lt;text class=&#34;al-code&#34; x=263 y=143 font-size=10 textLength=40 text-anchor=middle&gt;&#34;third&#34;&lt;/text&gt;
+            &lt;line x1=263 y1=130 x2=255 y2=80 stroke=black /&gt;
+        &lt;/g&gt;
+
+
+        &lt;text class=&#34;al-code&#34; font-size=&#34;10&#34; text-anchor=&#34;middle&#34; x=&#34;150&#34; y=&#34;153&#34; dy=1em&gt;GC completes correctly&lt;/text&gt;
+
+        &lt;svg viewBox=&#34;0 0 100 20&#34; width=100 height=20 y=170 x=101&gt;
+            &lt;a xlink:href=&#34;#write-barrier-1&#34;&gt;
+                &lt;rect y=&#34;2&#34; x=&#34;5&#34; width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=13 font-size=10 dominant-baseline=middle text-anchor=middle textLength=10 fill=black&gt;1&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-2&#34;&gt;
+                &lt;rect y=2 x=26 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;34&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;2&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-3&#34;&gt;
+                &lt;rect y=2 x=47 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;55&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;3&lt;/text&gt;
+            &lt;/a&gt;
+            &lt;a xlink:href=&#34;#write-barrier-4&#34; class=&#34;active-slide&#34;&gt;
+                &lt;rect y=2 x=68 width=&#34;16&#34; height=&#34;16&#34; stroke=black fill=white&gt;&lt;/rect&gt;
+                &lt;text class=&#34;al-code&#34; y=&#34;10&#34; x=&#34;76&#34; font-size=10 dominant-baseline=middle text-anchor=middle textLength=10&gt;4&lt;/text&gt;
+            &lt;/a&gt;
+        &lt;/svg&gt;
+    &lt;/svg&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(function(){
+    function setupButtons(root) {
+        const slideCount = root.children.length;
+        let buttons = root.querySelectorAll(&#34;svg&gt;a&#34;);
+        for (let button of buttons) {
+            // These are SVGAElement.
+            let href = button.href.baseVal;
+            let lastChar = href.charAt(href.length-1);
+            let lastCharAsNum = Number.parseInt(lastChar);
+            let transitionTo = lastCharAsNum-1;
+            if (transitionTo &gt;= 0 &amp;&amp; transitionTo &lt; slideCount) {
+                button.addEventListener(&#34;click&#34;, function(clickEv) {
+                    clickEv.preventDefault(); // To prevent changing the URI fragment.
+                    for (let idx=0; idx&lt;slideCount; idx++) {
+                        let slideElement = root.children[idx];
+                        if (idx == transitionTo) {
+                            slideElement.classList.remove(&#34;hidden&#34;);
+                        } else if (!slideElement.classList.contains(&#34;hidden&#34;)) {
+                            slideElement.classList.add(&#34;hidden&#34;);
+                        }
+                    }
+                    root.querySelectorAll(&#34;animate&#34;).forEach(e =&gt; {
+                        // Hack for restarting the SVG animation timeline.
+                        // Reinsert all elements then kick the animation on the syncbase element
+                        // that all the animate elements are based off of.
+                        let parent = e.parentNode;
+                        parent.removeChild(e);
+                        parent.insertAdjacentHTML(&#34;beforeend&#34;, e.outerHTML);
+                        if (e.id.startsWith(&#34;root&#34;)) {
+                            parent.children[parent.children.length-1].beginElement();
+                        }
+                    });
+                });
+            } else {
+                console.error(&#34;failed finding index for transition button&#34;, button);
+            }
+        }
+    }
+    setupButtons(document.getElementById(&#34;al-svg-1&#34;));
+    setupButtons(document.getElementById(&#34;al-svg-2&#34;));
+    setupButtons(document.getElementById(&#34;al-svg-3&#34;));
+    setupButtons(document.getElementById(&#34;al-svg-4&#34;));
+})();
+&lt;/script&gt;
+
+
+&lt;p&gt;The write barriers is a piece of code that informs the GC every time an object starts to reference a new object. In addition to facilitating incremental GC, write barriers also help with generational GC.&lt;/p&gt;
+&lt;h2 id=&#34;how-to-miss-a-write-barrier&#34;&gt;How to miss a write barrier&lt;/h2&gt;
+&lt;p&gt;Going back to our crash reproducer, we can now guess that &lt;code&gt;Hash#transform_values!&lt;/code&gt; is missing a write barrier somewhere. After all, it&amp;rsquo;s the only thing that can mutate the object reference graph after the GC runs. &lt;a href=&#34;https://github.com/ruby/ruby/pull/2964&#34;&gt;This indeed was the problem&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;There are many garbage collected languages that ship with compilers which can automatically insert write barriers. CRuby does not have that luxury however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.&lt;/p&gt;
+&lt;h2 id=&#34;consequences&#34;&gt;Consequences&lt;/h2&gt;
+&lt;p&gt;Missing write barriers can make the GC collect live objects and lead to &lt;a href=&#34;https://en.wikipedia.org/w/index.php?title=Use_after_free&#34;&gt;use-after-free&lt;/a&gt;. This can lead to crashes like we have seen, or worse, silent data corruption. The following program demonstrates data corruption:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;99&lt;/span&gt; }
+p hash
+&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
+p hash
+
+&lt;span style=&#34;color:#75715e&#34;&gt;=begin
+&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;$ ruby -v corrupt.rb
+&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;ruby 2.7.0p0 (2019-12-25 revision 647ee6f091) [x86_64-darwin19]
+&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;633825300114114700748351602688}
+&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;&amp;#34;:a&amp;#34;}
+&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;=end&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Running the GC should not have visible impact on live objects.&lt;/p&gt;
+&lt;h2 id=&#34;possible-ways-to-prevent-this-in-the-future&#34;&gt;Possible ways to prevent this in the future&lt;/h2&gt;
+&lt;p&gt;To quote Koichi Sasada in a &lt;a href=&#34;https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf&#34;&gt;paper&lt;/a&gt; about CRuby&amp;rsquo;s write barriers:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Indeed, write barriers bugs can be very elusive. I certainly don&amp;rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with &lt;code&gt;GC&lt;/code&gt; in the reproducer &amp;ndash; a lot of the time the program doesn&amp;rsquo;t crash and appears to work correctly.&lt;/p&gt;
+&lt;p&gt;I&amp;rsquo;m going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.&lt;/p&gt;
+&lt;h3 id=&#34;education-and-code-reviews&#34;&gt;Education and code reviews&lt;/h3&gt;
+&lt;p&gt;It&amp;rsquo;s easy to forget to check for write barriers because a lot of the time one can compose the desired code change from pre-existing functions that already deal with write barriers correctly. Maybe the only thing that was stopping someone from catching this particular write barrier removal was a reminder to look for it. A gentle reminder on Github&amp;rsquo;s pull request template could make sense.&lt;/p&gt;
+&lt;p&gt;I also think more people should understand write barriers enough that they know when to insert them. Write barriers form a very important contract between the GC and the rest of the virtual machine. People making changes should be aware of this contract.&lt;/p&gt;
+&lt;h3 id=&#34;static-analysis&#34;&gt;Static analysis&lt;/h3&gt;
+&lt;p&gt;Humans are unreliable and can easily make mistakes. It would be ideal if we could run a program and get an assessment as to whether a write barrier is missing. For this particular case, it seems reasonable to write a Clang-based static analyzer that could catch it. However, I don&amp;rsquo;t know how useful that would be for unknown cases that might reveal themselves in the future. Also, the ergonomics of static analyzers is hard to get right. Among other potential issues, just a few false alarms can make them too annoying to use.&lt;/p&gt;
+&lt;p&gt;Never the less, maybe it&amp;rsquo;s worth it to make a best-effort static analyzer to help new contributors and experienced ones alike.&lt;/p&gt;
+&lt;h2 id=&#34;summary&#34;&gt;Summary&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Write barriers are an important part of Ruby&amp;rsquo;s incremental GC that updates the GC&amp;rsquo;s understanding of the object reference graph&lt;/li&gt;
+&lt;li&gt;CRuby developers are responsible for manually inserting write barriers wherever necessary&lt;/li&gt;
+&lt;li&gt;Failing to insert write barriers can cause catastrophic failures such as crashes and data corruption&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;footnotes&#34;&gt;Footnotes&lt;/h2&gt;
+&lt;section class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34; role=&#34;doc-endnote&#34;&gt;
+&lt;p&gt;This is a textbook tri-color mark algorithm. Typically, the three colors are white, grey, and black. I chose different colors in an effort to help &lt;a href=&#34;https://davidmathlogic.com/colorblind&#34;&gt;colorblind&lt;/a&gt; readers. &lt;a href=&#34;#fnref:1&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/section&gt;
+</description>
+    </item>
     
     <item>
       <title>Checking Ruby C extensions for object movement crashes</title>

@@ -45,7 +45,7 @@
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://alanwu.space/" />
-<meta property="og:updated_time" content="2021-01-26T19:58:24-05:00" />
+<meta property="og:updated_time" content="2021-07-22T06:27:34-04:00" />
 
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Thoughts from Alan"/>
@@ -86,6 +86,38 @@
 
     <div class="articles h-feed">
         
+        
+            <article class="post-list h-feed">
+    <header class="post-header">
+        <h1 class="p-name post-title"><a class="u-url" href="/post/write-barrier/">Write barriers and an old Ruby bug</a></h1>
+    </header>
+
+    <div class="content post-summary p-summary">
+        Here is a program that crashes Ruby 2.7.0:
+hash = { a: Object.new } GC.start hash.transform_values!{ Object.new } GC.start(full_mark: false) GC.start The crash message is scary and subtly hints at the presence of a bug:
+[BUG] try to mark T_NONE object In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.
+Is it a bug in the garbage collector?
+    </div>
+    
+    
+    
+
+
+<div class="post-info">
+    
+        <div class="post-date dt-published">2021-07-22</div>
+    
+    
+    <a class="post-hidden-url u-url" href="https://alanwu.space/post/write-barrier/">https://alanwu.space/post/write-barrier/</a>
+    <div class="post-hidden-author p-author"></div>
+
+    <div class="post-taxonomies">
+        
+            
+    </div>
+</div>
+
+</article>
         
             <article class="post-list h-feed">
     <header class="post-header">
