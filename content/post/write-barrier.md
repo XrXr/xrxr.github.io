@@ -1,6 +1,9 @@
 ---
 title: "Write barriers and an old Ruby bug"
 date: 2021-07-22T06:27:34-04:00
+summary: >-
+  Learn about the role write barriers play in garbage collection algorithms through
+  CRuby's implementation and example animations.
 ---
 
 Here is a program that crashes Ruby 2.7.0:

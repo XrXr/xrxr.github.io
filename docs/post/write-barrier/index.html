@@ -40,10 +40,7 @@
 
 
 <meta property="og:title" content="Write barriers and an old Ruby bug" />
-<meta property="og:description" content="Here is a program that crashes Ruby 2.7.0:
-hash = { a: Object.new } GC.start hash.transform_values!{ Object.new } GC.start(full_mark: false) GC.start The crash message is scary and subtly hints at the presence of a bug:
-[BUG] try to mark T_NONE object In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.
-Is it a bug in the garbage collector?" />
+<meta property="og:description" content="Learn about the role write barriers play in garbage collection algorithms through CRuby&rsquo;s implementation and example animations." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://alanwu.space/post/write-barrier/" />
 <meta property="article:published_time" content="2021-07-22T06:27:34-04:00" />
@@ -51,10 +48,7 @@ Is it a bug in the garbage collector?" />
 
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Write barriers and an old Ruby bug"/>
-<meta name="twitter:description" content="Here is a program that crashes Ruby 2.7.0:
-hash = { a: Object.new } GC.start hash.transform_values!{ Object.new } GC.start(full_mark: false) GC.start The crash message is scary and subtly hints at the presence of a bug:
-[BUG] try to mark T_NONE object In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.
-Is it a bug in the garbage collector?"/>
+<meta name="twitter:description" content="Learn about the role write barriers play in garbage collection algorithms through CRuby&rsquo;s implementation and example animations."/>
 
 
 

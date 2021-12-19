@@ -93,10 +93,7 @@
     </header>
 
     <div class="content post-summary p-summary">
-        Here is a program that crashes Ruby 2.7.0:
-hash = { a: Object.new } GC.start hash.transform_values!{ Object.new } GC.start(full_mark: false) GC.start The crash message is scary and subtly hints at the presence of a bug:
-[BUG] try to mark T_NONE object In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.
-Is it a bug in the garbage collector?
+        Learn about the role write barriers play in garbage collection algorithms through CRuby&rsquo;s implementation and example animations.
     </div>
     
     
