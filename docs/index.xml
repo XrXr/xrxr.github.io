@@ -18,22 +18,22 @@
       
       <guid>https://alanwu.space/post/write-barrier/</guid>
       <description>&lt;p&gt;Here is a program that crashes Ruby 2.7.0:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
-&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
-hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
-&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
-&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The crash message is scary and subtly hints at the presence of a bug:&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;[BUG] try to mark T_NONE object
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The crash message is scary and subtly hints at the presence of a bug:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;[BUG] try to mark T_NONE object
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.&lt;/p&gt;
 &lt;h2 id=&#34;is-it-a-bug-in-the-garbage-collector&#34;&gt;Is it a bug in the garbage collector?&lt;/h2&gt;
-&lt;p&gt;Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with &lt;code&gt;--disable-gems&lt;/code&gt;, it&amp;rsquo;s clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that &lt;code&gt;gc.c&lt;/code&gt; initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty for this crash? It turns out, there is a method, &lt;code&gt;GC.verify_internal_consistency&lt;/code&gt; that can help us out.&lt;/p&gt;
+&lt;p&gt;Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with &lt;code&gt;--disable-gems&lt;/code&gt;, it&amp;rsquo;s clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that &lt;code&gt;gc.c&lt;/code&gt; initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty of this crash? It turns out, there is a method, &lt;code&gt;GC.verify_internal_consistency&lt;/code&gt; that can help us out.&lt;/p&gt;
 &lt;p&gt;Adding a call to this method right after the call to &lt;code&gt;transform_values!&lt;/code&gt; in our reproducer, we get a different message:&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;verify_internal_consistency_reachable_i: WB miss (O-&amp;gt;Y) T_HASH -&amp;gt; T_OBJECT
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;verify_internal_consistency_reachable_i: WB miss (O-&amp;gt;Y) T_HASH -&amp;gt; T_OBJECT
 crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Okay, it looks like some invariant that the GC cares about is not upheld, but what is a &amp;ldquo;WB miss&amp;rdquo;?&lt;/p&gt;
 &lt;h2 id=&#34;incremental-mark-and-sweep&#34;&gt;Incremental mark and sweep&lt;/h2&gt;
-&lt;p&gt;WB stands for write barrier so &lt;code&gt;gc_verify_internal_consistency&lt;/code&gt; is telling us that there is a &amp;ldquo;write barrier miss&amp;rdquo;. To understand what write barriers are and what they are for, we first need to undertand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. &amp;ldquo;Stop-the-world&amp;rdquo; sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. &lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;WB stands for write barrier so &lt;code&gt;gc_verify_internal_consistency&lt;/code&gt; is telling us that there is a &amp;ldquo;write barrier miss&amp;rdquo;. To understand what write barriers are and what they are for, we first need to understand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. &amp;ldquo;Stop-the-world&amp;rdquo; sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. &lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
 &lt;style&gt;
 .hidden {
@@ -265,7 +265,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 
 
 &lt;p&gt;This works okay, with one disadvantage: when there are many objects alive, the GC could pause Ruby code execution for an unacceptably long amount of time. Pausing for just 17 milliseconds in a video game could be devastating as that can easily make the game miss its frame rate target.&lt;/p&gt;
-&lt;p&gt;To deal with this problem, we could break up the work the GC has to do into chunks and interleave them with Ruby code execution. To go back to the video game example, instead of pausing for say 17 milliseconds a single time, we pause for 1 millisecond 17 times, allowing Ruby code to execute between pauses. If the game has a 17 milliseconds to render each frame, instead of taking up 17 milliseconds once in a while, blowing through the frame time budget, the GC now takes up 1 millisecond once in a while. The GC potentially takes longer to release garbage objects, because the total amount of work is still the same as before, but that should be okay for a lot of applications.&lt;/p&gt;
+&lt;p&gt;To deal with this problem, we could break up the work the GC has to do into chunks and interleave them with Ruby code execution. To go back to the video game example, instead of pausing for say 17 milliseconds a single time, we pause for 1 millisecond 17 times, allowing Ruby code to execute between pauses. If the game has 17 milliseconds to render each frame, instead of taking up 17 milliseconds once in a while, blowing through the frame time budget, the GC now takes up 1 millisecond once in a while. The GC potentially takes longer to release garbage objects, because the total amount of work is still the same as before, but that should be okay for a lot of applications.&lt;/p&gt;
 
 &lt;div id=&#34;al-svg-2&#34;&gt;
     &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
@@ -929,7 +929,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 
 
 &lt;p&gt;We know &lt;code&gt;J&lt;/code&gt; is alive since &lt;code&gt;O&lt;/code&gt; is alive and all objects referenced by alive objects are also alive. However &lt;code&gt;O&lt;/code&gt; is already marked, so the GC will not mark it again to see that &lt;code&gt;O&lt;/code&gt; now refers to an object it didn&amp;rsquo;t see the first time &lt;code&gt;O&lt;/code&gt; was marked. Nevertheless, the GC cannot treat &lt;code&gt;J&lt;/code&gt; as garbage. We need some way to address this problem.&lt;/p&gt;
-&lt;p&gt;We could make the Ruby code inform the GC every time it associates an object with another one. This way, when the Ruby code makes changes to an object the GC already marked the GC could be aware of objects that it potentially were unaware of at the time of marking:&lt;/p&gt;
+&lt;p&gt;We could make the Ruby code inform the GC every time it associates an object with another one. This way, when the Ruby code makes changes to an object the GC already marked the GC could be aware of objects that it potentially was unaware of at the time of marking:&lt;/p&gt;
 
 &lt;div id=&#34;al-svg-4&#34;&gt;
     &lt;svg viewBox=&#34;0 0 300 200&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
@@ -1311,39 +1311,39 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 &lt;/script&gt;
 
 
-&lt;p&gt;The write barriers is a piece of code that informs the GC every time an object starts to reference a new object. In addition to facilitating incremental GC, write barriers also help with generational GC.&lt;/p&gt;
-&lt;h2 id=&#34;how-to-miss-a-write-barrier&#34;&gt;How to miss a write barrier&lt;/h2&gt;
+&lt;p&gt;The write barrier is a piece of code that informs the GC every time an object starts to reference a new object. In addition to facilitating incremental GC, write barriers also help with generational GC.&lt;/p&gt;
+&lt;h2 id=&#34;how-to-miss-a-write-barrier&#34;&gt;How to &amp;ldquo;miss&amp;rdquo; a write barrier&lt;/h2&gt;
 &lt;p&gt;Going back to our crash reproducer, we can now guess that &lt;code&gt;Hash#transform_values!&lt;/code&gt; is missing a write barrier somewhere. After all, it&amp;rsquo;s the only thing that can mutate the object reference graph after the GC runs. &lt;a href=&#34;https://github.com/ruby/ruby/pull/2964&#34;&gt;This indeed was the problem&lt;/a&gt;.&lt;/p&gt;
-&lt;p&gt;There are many garbage collected languages that ship with compilers which can automatically insert write barriers. CRuby does not have that luxury however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.&lt;/p&gt;
+&lt;p&gt;There are many garbage collected languages that ship with compilers that can automatically insert write barriers. CRuby does not have that luxury, however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.&lt;/p&gt;
 &lt;h2 id=&#34;consequences&#34;&gt;Consequences&lt;/h2&gt;
 &lt;p&gt;Missing write barriers can make the GC collect live objects and lead to &lt;a href=&#34;https://en.wikipedia.org/w/index.php?title=Use_after_free&#34;&gt;use-after-free&lt;/a&gt;. This can lead to crashes like we have seen, or worse, silent data corruption. The following program demonstrates data corruption:&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
-&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
-hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;99&lt;/span&gt; }
-p hash
-&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
-p hash
-
-&lt;span style=&#34;color:#75715e&#34;&gt;=begin
-&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;$ ruby -v corrupt.rb
-&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;ruby 2.7.0p0 (2019-12-25 revision 647ee6f091) [x86_64-darwin19]
-&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;633825300114114700748351602688}
-&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;&amp;#34;:a&amp;#34;}
-&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;=end&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Running the GC should not have visible impact on live objects.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hash &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; { &lt;span style=&#34;color:#e6db74&#34;&gt;a&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;Object&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hash&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;transform_values!{ &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;99&lt;/span&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;p hash
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start(&lt;span style=&#34;color:#e6db74&#34;&gt;full_mark&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;p hash
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;=begin
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;$ ruby -v corrupt.rb
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;ruby 2.7.0p0 (2019-12-25 revision 647ee6f091) [x86_64-darwin19]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;633825300114114700748351602688}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;{:a=&amp;gt;&amp;#34;:a&amp;#34;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;=end&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Running the GC should not have visible impact on live objects.&lt;/p&gt;
 &lt;h2 id=&#34;possible-ways-to-prevent-this-in-the-future&#34;&gt;Possible ways to prevent this in the future&lt;/h2&gt;
 &lt;p&gt;To quote Koichi Sasada in a &lt;a href=&#34;https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf&#34;&gt;paper&lt;/a&gt; about CRuby&amp;rsquo;s write barriers:&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.&lt;/p&gt;
 &lt;/blockquote&gt;
-&lt;p&gt;Indeed, write barriers bugs can be very elusive. I certainly don&amp;rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with &lt;code&gt;GC&lt;/code&gt; in the reproducer &amp;ndash; a lot of the time the program doesn&amp;rsquo;t crash and appears to work correctly.&lt;/p&gt;
+&lt;p&gt;Indeed, write barrier bugs can be very elusive. I certainly don&amp;rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with &lt;code&gt;GC&lt;/code&gt; in the reproducer &amp;ndash; a lot of the time the program doesn&amp;rsquo;t crash and appears to work correctly.&lt;/p&gt;
 &lt;p&gt;I&amp;rsquo;m going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.&lt;/p&gt;
 &lt;h3 id=&#34;education-and-code-reviews&#34;&gt;Education and code reviews&lt;/h3&gt;
 &lt;p&gt;It&amp;rsquo;s easy to forget to check for write barriers because a lot of the time one can compose the desired code change from pre-existing functions that already deal with write barriers correctly. Maybe the only thing that was stopping someone from catching this particular write barrier removal was a reminder to look for it. A gentle reminder on Github&amp;rsquo;s pull request template could make sense.&lt;/p&gt;
 &lt;p&gt;I also think more people should understand write barriers enough that they know when to insert them. Write barriers form a very important contract between the GC and the rest of the virtual machine. People making changes should be aware of this contract.&lt;/p&gt;
 &lt;h3 id=&#34;static-analysis&#34;&gt;Static analysis&lt;/h3&gt;
-&lt;p&gt;Humans are unreliable and can easily make mistakes. It would be ideal if we could run a program and get an assessment as to whether a write barrier is missing. For this particular case, it seems reasonable to write a Clang-based static analyzer that could catch it. However, I don&amp;rsquo;t know how useful that would be for unknown cases that might reveal themselves in the future. Also, the ergonomics of static analyzers is hard to get right. Among other potential issues, just a few false alarms can make them too annoying to use.&lt;/p&gt;
-&lt;p&gt;Never the less, maybe it&amp;rsquo;s worth it to make a best-effort static analyzer to help new contributors and experienced ones alike.&lt;/p&gt;
+&lt;p&gt;Humans are unreliable and can easily make mistakes. It would be ideal if we could run a program and get an assessment as to whether a write barrier is missing. For this particular case, it seems reasonable to write a Clang-based static analyzer that could catch it. However, I don&amp;rsquo;t know how useful that would be for unknown cases that might reveal themselves in the future. Also, the ergonomics of static analyzers are hard to get right. Among other potential issues, just a few false alarms can make them too annoying to use.&lt;/p&gt;
+&lt;p&gt;Nevertheless, maybe it&amp;rsquo;s worth it to make a best-effort static analyzer to help new contributors and experienced ones alike.&lt;/p&gt;
 &lt;h2 id=&#34;summary&#34;&gt;Summary&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;Write barriers are an important part of Ruby&amp;rsquo;s incremental GC that updates the GC&amp;rsquo;s understanding of the object reference graph&lt;/li&gt;
@@ -1355,7 +1355,7 @@ p hash
 &lt;hr&gt;
 &lt;ol&gt;
 &lt;li id=&#34;fn:1&#34; role=&#34;doc-endnote&#34;&gt;
-&lt;p&gt;This is a textbook tri-color mark algorithm. Typically, the three colors are white, grey, and black. I chose different colors in an effort to help &lt;a href=&#34;https://davidmathlogic.com/colorblind&#34;&gt;colorblind&lt;/a&gt; readers. &lt;a href=&#34;#fnref:1&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;This is a textbook tri-color mark algorithm. Typically, the three colors are white, grey, and black. I chose different colors in an effort to help &lt;a href=&#34;https://davidmathlogic.com/colorblind&#34;&gt;colorblind&lt;/a&gt; readers.&amp;#160;&lt;a href=&#34;#fnref:1&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;/section&gt;
@@ -1372,7 +1372,7 @@ p hash
 &lt;h3 id=&#34;using-automated-tests-to-surface-crashes&#34;&gt;Using automated tests to surface crashes&lt;/h3&gt;
 &lt;p&gt;If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite.&lt;/p&gt;
 &lt;p&gt;Add the following line such that it runs after all the code in the test suite finishes loading, but before any tests run. For libraries, this usually means inserting after &lt;code&gt;require &amp;quot;library_name&amp;quot;&lt;/code&gt; during test setup.&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;GC.verify_compaction_references(double_heap: true, toward: :empty)
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;GC.verify_compaction_references(double_heap: true, toward: :empty)
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Look for crash ouputs similar to that of &lt;code&gt;ruby -e &#39;Process.kill(:SEGV, $$)&#39;&lt;/code&gt; and unexpected &lt;code&gt;TypeErorr&lt;/code&gt;s. APIs such as &lt;code&gt;rb_raise&lt;/code&gt; can raise &lt;code&gt;TypeError&lt;/code&gt; when given invalid references.&lt;/p&gt;
 &lt;h3 id=&#34;one-common-mistake&#34;&gt;One common mistake&lt;/h3&gt;
 &lt;p&gt;A common pitfall that causes object movement bugs is saving objects created with Ruby code into global variables. This is usually done with &lt;code&gt;rb_const_get&lt;/code&gt; or similar in the extension&amp;rsquo;s &lt;code&gt;Init_library_name&lt;/code&gt; routine. Often the object saved into the C global is a class or a module defined in Ruby code.&lt;/p&gt;
@@ -1390,61 +1390,61 @@ p hash
 &lt;p&gt;Extensions that follow the pattern above can cause crashes in Ruby releases that never move objects. The object saved into a constant in Ruby code can be removed from that constant via means such as &lt;code&gt;Module#remove_const&lt;/code&gt; and be collected by the GC, invalidating the &lt;code&gt;VALUE&lt;/code&gt; stored in the C global. See this &lt;a href=&#34;https://github.com/msgpack/msgpack-ruby/issues/133&#34;&gt;issue&lt;/a&gt; for an example of this happening in a popular gem.&lt;/p&gt;
 &lt;h3 id=&#34;examples&#34;&gt;Examples&lt;/h3&gt;
 &lt;p&gt;Here is a demo that contains the discussed failure pattern. For an exercise, try to fix the object movement bug.&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/env ruby&lt;/span&gt;
-&lt;span style=&#34;color:#75715e&#34;&gt;# frozen_string_literal: true&lt;/span&gt;
-&lt;span style=&#34;color:#75715e&#34;&gt;# This demo contains an object movement bug.&lt;/span&gt;
-&lt;span style=&#34;color:#75715e&#34;&gt;# Run in an empty directory.&lt;/span&gt;
-
-&lt;span style=&#34;color:#75715e&#34;&gt;# Write out code for C extension&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;File&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ext.c&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;lt;&amp;lt;-EOM)
-&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#include &amp;#34;ruby.h&amp;#34;&lt;/span&gt;
-
-static &lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; cLuckError;
-
-&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt;
-luck_trial(&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; self)
-{
-    rb_raise(cLuckError, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;insufficient luck&amp;#34;&lt;/span&gt;);
-}
-
-void
-&lt;span style=&#34;color:#66d9ef&#34;&gt;Init_bad&lt;/span&gt;(void)
-{
-    cLuckError &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; rb_const_get(rb_cObject, rb_intern(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;LuckError&amp;#34;&lt;/span&gt;));
-    rb_define_global_function(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;luck_trial&amp;#34;&lt;/span&gt;, luck_trial, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
-}
-&lt;span style=&#34;color:#66d9ef&#34;&gt;EOM&lt;/span&gt;
-
-&lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;StandardError&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
-
-&lt;span style=&#34;color:#75715e&#34;&gt;# Compile the C extension&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;spawn(&lt;span style=&#34;color:#66d9ef&#34;&gt;Gem&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ruby, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-rmkmf&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-e&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;create_makefile(&amp;#34;bad&amp;#34;)&amp;#39;&lt;/span&gt;)
-&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;wait
-&lt;span style=&#34;color:#e6db74&#34;&gt;`make clean`&lt;/span&gt;
-&lt;span style=&#34;color:#e6db74&#34;&gt;`make`&lt;/span&gt;
-
-&lt;span style=&#34;color:#75715e&#34;&gt;# Load the C extension. Initialization runs.&lt;/span&gt;
-require_relative &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;bad&amp;#39;&lt;/span&gt;
-
-&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; defined?(&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;method&amp;#39;&lt;/span&gt;
-  &lt;span style=&#34;color:#75715e&#34;&gt;# Ask the GC to move objects around&lt;/span&gt;
-  &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references(&lt;span style=&#34;color:#e6db74&#34;&gt;double_heap&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;toward&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;:empty&lt;/span&gt;)
-&lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;
-  &lt;span style=&#34;color:#75715e&#34;&gt;# Trigger the bug without doing any object movement by making&lt;/span&gt;
-  &lt;span style=&#34;color:#75715e&#34;&gt;# LuckError unreachable. Compatible with Ruby 2.5.x.&lt;/span&gt;
-  &lt;span style=&#34;color:#66d9ef&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;nil&lt;/span&gt;
-  &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;times { &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start }
-&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
-
-&lt;span style=&#34;color:#75715e&#34;&gt;# Use the extension&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;begin&lt;/span&gt;
-  luck_trial
-  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;success&amp;#34;&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;rescue&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&amp;gt;&lt;/span&gt; e
-  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;class&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
-&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For real-world references, here are a few pull requests that fix object movement bugs in popular gems:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/env ruby&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# frozen_string_literal: true&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# This demo contains an object movement bug.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Run in an empty directory.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Write out code for C extension&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;File&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;write(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ext.c&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;lt;&amp;lt;-EOM)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#include &amp;#34;ruby.h&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;static &lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; cLuckError;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;luck_trial(&lt;span style=&#34;color:#66d9ef&#34;&gt;VALUE&lt;/span&gt; self)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rb_raise(cLuckError, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;insufficient luck&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;void
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;Init_bad&lt;/span&gt;(void)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    cLuckError &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; rb_const_get(rb_cObject, rb_intern(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;LuckError&amp;#34;&lt;/span&gt;));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    rb_define_global_function(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;luck_trial&amp;#34;&lt;/span&gt;, luck_trial, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;EOM&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;StandardError&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Compile the C extension&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;spawn(&lt;span style=&#34;color:#66d9ef&#34;&gt;Gem&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ruby, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-rmkmf&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-e&amp;#39;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;create_makefile(&amp;#34;bad&amp;#34;)&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;Process&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;wait
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;`make clean`&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;`make`&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Load the C extension. Initialization runs.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;require_relative &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;bad&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; defined?(&lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references) &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;method&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# Ask the GC to move objects around&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;verify_compaction_references(&lt;span style=&#34;color:#e6db74&#34;&gt;double_heap&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;toward&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;:empty&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# Trigger the bug without doing any object movement by making&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# LuckError unreachable. Compatible with Ruby 2.5.x.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;LuckError&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;nil&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;times { &lt;span style=&#34;color:#66d9ef&#34;&gt;GC&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;start }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Use the extension&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;begin&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  luck_trial
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;success&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;rescue&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&amp;gt;&lt;/span&gt; e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  puts &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;class&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;#{&lt;/span&gt;e&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;end&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;For real-world references, here are a few pull requests that fix object movement bugs in popular gems:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;a href=&#34;https://github.com/brianmario/mysql2/pull/1115&#34;&gt;https://github.com/brianmario/mysql2/pull/1115&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href=&#34;https://github.com/Shopify/semian/pull/275&#34;&gt;https://github.com/Shopify/semian/pull/275&lt;/a&gt;&lt;/li&gt;
