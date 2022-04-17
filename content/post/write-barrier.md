@@ -23,7 +23,7 @@ In this post, I will explain the reason behind the crash and suggest some ways t
 
 ## Is it a bug in the garbage collector?
 
-Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with `--disable-gems`, it's clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that `gc.c` initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty for this crash? It turns out, there is a method, `GC.verify_internal_consistency` that can help us out.
+Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with `--disable-gems`, it's clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that `gc.c` initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty of this crash? It turns out, there is a method, `GC.verify_internal_consistency` that can help us out.
 
 Adding a call to this method right after the call to `transform_values!` in our reproducer, we get a different message:
 ```
@@ -34,7 +34,7 @@ Okay, it looks like some invariant that the GC cares about is not upheld, but wh
 
 ## Incremental mark and sweep
 
-WB stands for write barrier so `gc_verify_internal_consistency` is telling us that there is a "write barrier miss". To understand what write barriers are and what they are for, we first need to undertand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. "Stop-the-world" sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. [^1]
+WB stands for write barrier so `gc_verify_internal_consistency` is telling us that there is a "write barrier miss". To understand what write barriers are and what they are for, we first need to understand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. "Stop-the-world" sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. [^1]
 
 {{<html>}}
 <style>
@@ -268,7 +268,7 @@ WB stands for write barrier so `gc_verify_internal_consistency` is telling us th
 
 This works okay, with one disadvantage: when there are many objects alive, the GC could pause Ruby code execution for an unacceptably long amount of time. Pausing for just 17 milliseconds in a video game could be devastating as that can easily make the game miss its frame rate target.
 
-To deal with this problem, we could break up the work the GC has to do into chunks and interleave them with Ruby code execution. To go back to the video game example, instead of pausing for say 17 milliseconds a single time, we pause for 1 millisecond 17 times, allowing Ruby code to execute between pauses. If the game has a 17 milliseconds to render each frame, instead of taking up 17 milliseconds once in a while, blowing through the frame time budget, the GC now takes up 1 millisecond once in a while. The GC potentially takes longer to release garbage objects, because the total amount of work is still the same as before, but that should be okay for a lot of applications.
+To deal with this problem, we could break up the work the GC has to do into chunks and interleave them with Ruby code execution. To go back to the video game example, instead of pausing for say 17 milliseconds a single time, we pause for 1 millisecond 17 times, allowing Ruby code to execute between pauses. If the game has 17 milliseconds to render each frame, instead of taking up 17 milliseconds once in a while, blowing through the frame time budget, the GC now takes up 1 millisecond once in a while. The GC potentially takes longer to release garbage objects, because the total amount of work is still the same as before, but that should be okay for a lot of applications.
 
 {{<html>}}
 <div id="al-svg-2">
@@ -936,7 +936,7 @@ Great, we now have an incremental GC but we have also introduced a new problem. 
 
 We know `J` is alive since `O` is alive and all objects referenced by alive objects are also alive. However `O` is already marked, so the GC will not mark it again to see that `O` now refers to an object it didn't see the first time `O` was marked. Nevertheless, the GC cannot treat `J` as garbage. We need some way to address this problem.
 
-We could make the Ruby code inform the GC every time it associates an object with another one. This way, when the Ruby code makes changes to an object the GC already marked the GC could be aware of objects that it potentially were unaware of at the time of marking:
+We could make the Ruby code inform the GC every time it associates an object with another one. This way, when the Ruby code makes changes to an object the GC already marked the GC could be aware of objects that it potentially was unaware of at the time of marking:
 
 {{<html>}}
 <div id="al-svg-4">
@@ -1319,13 +1319,13 @@ We could make the Ruby code inform the GC every time it associates an object wit
 </script>
 {{</html>}}
 
-The write barriers is a piece of code that informs the GC every time an object starts to reference a new object. In addition to facilitating incremental GC, write barriers also help with generational GC.
+The write barrier is a piece of code that informs the GC every time an object starts to reference a new object. In addition to facilitating incremental GC, write barriers also help with generational GC.
 
-## How to miss a write barrier
+## How to "miss" a write barrier
 
 Going back to our crash reproducer, we can now guess that `Hash#transform_values!` is missing a write barrier somewhere. After all, it's the only thing that can mutate the object reference graph after the GC runs. [This indeed was the problem](https://github.com/ruby/ruby/pull/2964).
 
-There are many garbage collected languages that ship with compilers which can automatically insert write barriers. CRuby does not have that luxury however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.
+There are many garbage collected languages that ship with compilers that can automatically insert write barriers. CRuby does not have that luxury, however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.
 
 
 ## Consequences
@@ -1355,7 +1355,7 @@ To quote Koichi Sasada in a [paper](https://www.atdot.net/~ko1/activities/rgengc
 
 > In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.
 
-Indeed, write barriers bugs can be very elusive. I certainly don't put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with `GC` in the reproducer -- a lot of the time the program doesn't crash and appears to work correctly.
+Indeed, write barrier bugs can be very elusive. I certainly don't put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with `GC` in the reproducer -- a lot of the time the program doesn't crash and appears to work correctly.
 
 I'm going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.
 
@@ -1367,9 +1367,9 @@ I also think more people should understand write barriers enough that they know 
 
 ### Static analysis
 
-Humans are unreliable and can easily make mistakes. It would be ideal if we could run a program and get an assessment as to whether a write barrier is missing. For this particular case, it seems reasonable to write a Clang-based static analyzer that could catch it. However, I don't know how useful that would be for unknown cases that might reveal themselves in the future. Also, the ergonomics of static analyzers is hard to get right. Among other potential issues, just a few false alarms can make them too annoying to use.
+Humans are unreliable and can easily make mistakes. It would be ideal if we could run a program and get an assessment as to whether a write barrier is missing. For this particular case, it seems reasonable to write a Clang-based static analyzer that could catch it. However, I don't know how useful that would be for unknown cases that might reveal themselves in the future. Also, the ergonomics of static analyzers are hard to get right. Among other potential issues, just a few false alarms can make them too annoying to use.
 
-Never the less, maybe it's worth it to make a best-effort static analyzer to help new contributors and experienced ones alike.
+Nevertheless, maybe it's worth it to make a best-effort static analyzer to help new contributors and experienced ones alike.
 
 ## Summary
 
