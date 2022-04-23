@@ -143,7 +143,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -222,7 +222,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -299,7 +299,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -380,7 +380,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -462,7 +462,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -541,7 +541,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -627,7 +627,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -707,7 +707,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -792,7 +792,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -873,7 +873,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -959,7 +959,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -1039,7 +1039,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -1124,7 +1124,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 
@@ -1209,7 +1209,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
         &lt;rect fill=white width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=&#34;125&#34; /&gt;
         &lt;text class=al-code x=22 y=130 font-size=6&gt;Not marked&lt;/text&gt;
         &lt;rect fill=#CCBB44 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=134 /&gt;
-        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propogate, then become marked.&lt;/text&gt;
+        &lt;text class=al-code x=22 y=139 font-size=6&gt;Yet to be marked. Propagate, then become marked.&lt;/text&gt;
         &lt;rect fill=#228833 width=&#34;6&#34; height=&#34;6&#34; stroke=black rx=&#34;1&#34; x=&#34;13&#34; y=143 /&gt;
         &lt;text class=al-code x=22 y=148 font-size=6&gt;Marked&lt;/text&gt;
 

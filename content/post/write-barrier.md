@@ -145,7 +145,7 @@ WB stands for write barrier so `gc_verify_internal_consistency` is telling us th
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -224,7 +224,7 @@ WB stands for write barrier so `gc_verify_internal_consistency` is telling us th
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -303,7 +303,7 @@ To deal with this problem, we could break up the work the GC has to do into chun
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -384,7 +384,7 @@ To deal with this problem, we could break up the work the GC has to do into chun
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -466,7 +466,7 @@ To deal with this problem, we could break up the work the GC has to do into chun
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -545,7 +545,7 @@ To deal with this problem, we could break up the work the GC has to do into chun
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -633,7 +633,7 @@ Great, we now have an incremental GC but we have also introduced a new problem. 
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -713,7 +713,7 @@ Great, we now have an incremental GC but we have also introduced a new problem. 
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -798,7 +798,7 @@ Great, we now have an incremental GC but we have also introduced a new problem. 
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -879,7 +879,7 @@ Great, we now have an incremental GC but we have also introduced a new problem. 
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -967,7 +967,7 @@ We could make the Ruby code inform the GC every time it associates an object wit
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -1047,7 +1047,7 @@ We could make the Ruby code inform the GC every time it associates an object wit
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -1132,7 +1132,7 @@ We could make the Ruby code inform the GC every time it associates an object wit
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
@@ -1217,7 +1217,7 @@ We could make the Ruby code inform the GC every time it associates an object wit
         <rect fill=white width="6" height="6" stroke=black rx="1" x="13" y="125" />
         <text class=al-code x=22 y=130 font-size=6>Not marked</text>
         <rect fill=#CCBB44 width="6" height="6" stroke=black rx="1" x="13" y=134 />
-        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propogate, then become marked.</text>
+        <text class=al-code x=22 y=139 font-size=6>Yet to be marked. Propagate, then become marked.</text>
         <rect fill=#228833 width="6" height="6" stroke=black rx="1" x="13" y=143 />
         <text class=al-code x=22 y=148 font-size=6>Marked</text>
 
