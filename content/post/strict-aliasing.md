@@ -5,13 +5,12 @@ draft: true
 ---
 
 Recently I was asked about how to review C99 code for problems that
-arise from failing to follow the so called "strict aliasing" rules.
+arise from failing to follow the so called "strict aliasing rules".
 I struggled to present my thought process while vetting code for this class
 of problem, so I thought I would write a post to hopefully make my
 explanation more coherent.
 
-Just a disclaimer, I'm sharing my mental model for how compilers use this rule
-to make program transformations but I don't claim that my mental model is 100%
+Just a disclaimer, I don't claim that my mental model is 100%
 correct and exactly what happens during compilation. This model has helped
 me spot [problems in code] and has given me enough confidence to spot
 [problems in the compiler], but at the end of the day it's an abstract model from someone
@@ -19,9 +18,8 @@ who doesn't work on the compiler that actually runs. Better than nothing!
 
 The strict aliasing rules can be surprising because the way optimizers take
 advantage of them doesn't mesh well with the popular belief that pointers are "just numbers".
-Ultimately, the rules are in the ISO standards and popular compilers like GCC and Clang
-take advantage of them so there are practical benefits for knowing the rules, even if you
-disagree with them.
+Ultimately, I think there are practical benefits for understanding the rules even if you disagree
+with them since popular compilers such as GCC and Clang take advtange of the rules.
 
 # What are the rules, anyways?
 
@@ -34,13 +32,13 @@ What happens when the optimizer can see that a write is disjoint
 with respect to a read? It can decide to reorder the program
 and do the read first if it seems profitable for performance.
 
-Here is a sample where we can see GCC taking advantage of the rule:
+Here is a [sample](https://godbolt.org/z/xM6fxb9or) where we can see GCC making use of the aliasing rules:
 
 ```C
 unsigned
 reorder(unsigned *foo)
 {
-    *foo = 0u - 1u; // all bits one. Unsigned arithmetic wraps around.
+    *foo = 0u - 1u; // All bits one. Unsigned arithmetic wraps around.
 
     short *ptr = (short *)foo;
     *ptr = 0;
@@ -49,14 +47,49 @@ reorder(unsigned *foo)
 }
 ```
 
+Compiling with `-O2` gives the following:
+
 ```asm
 reorder:
-        mov     DWORD PTR [rdi], -65536
-        mov     eax, -1
-        ret
+    mov     DWORD PTR [rdi], -65536
+    mov     eax, -1
+    ret
 ```
 
-20:32 April 24th. Out of steam. Is this really useful to anyone?
+In two's complement encoding, `-1` is all bits one. If we successfully write zero to any
+part of an all bits one number, surly the result woud _not_ stay as all bits one!
+
+GCC's output has a different order than our source program; `*ptr = 0` seems to have no effect on the
+final read from `foo`, even though one might understand `foo` and `ptr` as
+having the same address and expect `*ptr = 0` to happen first like in the source code.
+
+Compile with `-O2 -fno-strict-aliasing` and we get something different:
+
+```
+reorder:
+    mov     DWORD PTR [rdi], -65536
+    mov     eax, -65536
+    ret
+```
+
+Ah ha! By default, when GCC gets to use the power granted to it by the standard, it can assume
+that the `short` accesses have no effect on `unsigned` accesses,
+but `-fno-strict-aliasing` tells GCC to forget about that part of the standard.
+
+The [bug report guide for GCC](https://gcc.gnu.org/bugs/) has a section about about `-fno-strict-aliasing`,
+maybe because many people have been caught off guard by this optimization:
+
+> To disable optimizations based on alias-analysis for faulty legacy code, the
+> option `-fno-strict-aliasing` can be used as a work-around.
+
+Oof. Okay GCC, type-based alias analysis is great and useful, but no need to judge this hard.
+
+# Snap back to reality
+
+Let's go look at a real-world example in CRuby where we failed to follow the rules.
+This example has to do with an out parameter, where we expect the function to do a write
+using the out parameter before returning.
+
 
 aside: This is with `./configure --disable-install-doc -C cflags=-flto LDFLAGS=-flto` with GCC.
 
