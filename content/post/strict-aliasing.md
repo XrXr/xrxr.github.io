@@ -4,33 +4,35 @@ date: 2022-04-24T17:33:13-04:00
 draft: true
 ---
 
-Recently I was asked about how to review C99 code for problems that
-arise from failing to follow the so called "strict aliasing rules".
-I struggled to present my thought process while vetting code for this class
-of problem, so I thought I would write a post to hopefully make my
-explanation more coherent.
+Recently I was asked about how to review C99 code for problems that arise from
+failing to follow the so called "strict aliasing rules". I struggled to present
+my thought process while vetting code for this class of problems, so I thought
+I would write a post to hopefully make my explanation more coherent.
 
 Just a disclaimer, I don't claim that my mental model is 100%
 correct and exactly what happens during compilation. This model has helped
 me spot [problems in code] and has given me enough confidence to spot
-[problems in the compiler], but at the end of the day it's an abstract model from someone
-who doesn't work on the compiler that actually runs. Better than nothing!
+[problems in the compiler], but at the end of the day it's an abstract model
+from someone who doesn't work on the compiler that actually runs. Better than
+nothing!
 
 The strict aliasing rules can be surprising because the way optimizers take
-advantage of them doesn't mesh well with the popular belief that pointers are "just numbers".
-Ultimately, I think there are practical benefits for understanding the rules even if you disagree
-with them since popular compilers such as GCC and Clang take advtange of the rules.
+advantage of them doesn't mesh well with the popular belief that pointers are
+"just numbers". Ultimately, I think there are practical benefits for
+understanding the rules even if you disagree with them. Popular compilers such
+as GCC and Clang take advantage of the rules so knowing them can help with
+debugging if for nothing else.
 
 # What are the rules, anyways?
 
-The relevant part in C99 is [§6.5p7], but in my head it
-basically boils down to "two value accesses are disjoint when the types are different,
-except when one of the types is a `char` type". Yes, this throws away some subtleties and it's
+The relevant part in C99 is [§6.5p7], but in my head it basically boils down to
+"two value accesses are disjoint when the types are different, except when one
+of the types is a `char` type". Yes, this throws away some subtleties and it's
 not going to get me into [WG14].
 
-What happens when the optimizer can see that a write is disjoint
-with respect to a read? It can decide to reorder the program
-and do the read first if it seems profitable for performance.
+What happens when the optimizer can see that a write is disjoint with respect
+to a read? It can decide to reorder the program and do the read first if it
+seems profitable for performance.
 
 Here is a [sample](https://godbolt.org/z/xM6fxb9or) where we can see GCC making use of the aliasing rules:
 
@@ -57,11 +59,14 @@ reorder:
 ```
 
 In two's complement encoding, `-1` is all bits one. If we successfully write zero to any
-part of an all bits one number, surly the result woud _not_ stay as all bits one!
+part of an all bits one number, surly the result would _not_ stay as all bits one!
 
-GCC's output has a different order than our source program; `*ptr = 0` seems to have no effect on the
-final read from `foo`, even though one might understand `foo` and `ptr` as
-having the same address and expect `*ptr = 0` to happen first like in the source code.
+GCC's output has a different order than our source program; `*ptr = 0` seems to
+have no effect on the final read from `foo`, even though one might understand
+`foo` and `ptr` as having the same address and expect `*ptr = 0` to happen
+first like in the source code. Adding to the surprise, GCC has combined the two
+indirect writes into one, seemingly via the understanding that `foo` and `ptr`
+have the same address! There seems to be some strange contradiction.
 
 Compile with `-O2 -fno-strict-aliasing` and we get something different:
 
@@ -72,8 +77,8 @@ reorder:
     ret
 ```
 
-Ah ha! By default, when GCC gets to use the power granted to it by the standard, it can assume
-that the `short` accesses have no effect on `unsigned` accesses,
+Ah ha! By default, when GCC gets to use the power granted to it by the
+standard, it can assume that `short` writes have no effect on `unsigned` reads,
 but `-fno-strict-aliasing` tells GCC to forget about that part of the standard.
 
 The [bug report guide for GCC](https://gcc.gnu.org/bugs/) has a section about about `-fno-strict-aliasing`,
@@ -86,9 +91,9 @@ Oof. Okay GCC, type-based alias analysis is great and useful, but no need to jud
 
 # Snap back to reality
 
-Let's go look at a real-world example in CRuby where we failed to follow the rules.
-This example has to do with an out parameter, where we expect the function to do a write
-using the out parameter before returning.
+Let's go look at a practical example in CRuby where we failed to follow the
+rules. This example has to do with an out parameter, where we expect a function
+to do a write using the out parameter before returning.
 
 
 aside: This is with `./configure --disable-install-doc -C cflags=-flto LDFLAGS=-flto` with GCC.
