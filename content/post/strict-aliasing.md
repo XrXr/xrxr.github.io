@@ -81,8 +81,9 @@ Ah ha! By default, when GCC gets to use the power granted to it by the
 standard, it can assume that `short` writes have no effect on `unsigned` reads,
 but `-fno-strict-aliasing` tells GCC to forget about that part of the standard.
 
-The [bug report guide for GCC](https://gcc.gnu.org/bugs/) has a section about about `-fno-strict-aliasing`,
-maybe because many people have been caught off guard by this optimization:
+The [bug report guide for GCC](https://gcc.gnu.org/bugs/) has a section about
+about `-fno-strict-aliasing`, maybe because many people have been caught off
+guard by this optimization:
 
 > To disable optimizations based on alias-analysis for faulty legacy code, the
 > option `-fno-strict-aliasing` can be used as a work-around.
@@ -92,11 +93,63 @@ Oof. Okay GCC, type-based alias analysis is great and useful, but no need to jud
 # Snap back to reality
 
 Let's go look at a practical example in CRuby where we failed to follow the
-rules. This example has to do with an out parameter, where we expect a function
-to do a write using the out parameter before returning.
+rules. If you'd like to follow along, you can grab this [commit] and build with
+the following commands:
+
+```shell
+$ ./autogen.sh
+$ ./configure cflags=-flto LDFLAGS=-flto
+$ make -j8 miniruby
+```
+
+I'll be using GCC 11.2.0 on a GNU/Linux distribution.
+
+This example has to do with an out parameter, where we expect a function to do
+a write using the out parameter before returning. The call site looks like
+this:
+
+```C
+typedef VALUE unsigned long;
+typedef ID unsigned long;
+typedef struct st_table st_table;
+
+int rb_id_table_lookup(struct rb_id_table *tbl, ID id, VALUE *valp);
+//                                                            ^^^^
+//                                                  out param of interest
+
+void
+do_lookup(struct rb_id_table *const_cache, ID id)
+{
+    st_table *ics;
+
+    if (rb_id_table_lookup(constant_cache, id, (VALUE *) &ics)) {
+        // successful lookup
+        st_foreach(ics, iterator_fn, 0);
+    }
+}
+```
+
+When `rb_id_table_lookup()` returns 1, it indicates that it has written through `valp`:
+
+```C
+//... inside rb_id_table_lookup()
+if (index >= 0) {
+    *valp = tbl->items[index].val;
+    return TRUE;
+}
+else {
+    return FALSE;
+}
+```
 
 
-aside: This is with `./configure --disable-install-doc -C cflags=-flto LDFLAGS=-flto` with GCC.
+(*** TODO not happy with this paragraph. How do I show that there is a write and
+a read of mismatching type simpler?)
+Sorry for throwing code at you; I'm trying to give enough context so we can
+pretend to be the compiler ! We are interested in the code path where the
+lookup succeeds and we are inside the `if` block in `do_lookup()`. There
+are really just two accesses, a write to `VALUE` and a read from `st_table *`.
+
 
 ```text
 vm_insnhelper.c:4948:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
@@ -107,5 +160,8 @@ vm_insnhelper.c:4942:19: note: ‘ics’ declared here
  4942 |         st_table *ics;
       |                   ^
 ```
-[§6.5p7]: http://port70.net/%7Ensz/c/c99/n1256.html#6.5p7
-[WG14]: http://www.open-std.org/jtc1/sc22/wg14/
+[§6.5p7]: https://port70.net/%7Ensz/c/c99/n1256.html#6.5p7
+[WG14]: https://www.open-std.org/jtc1/sc22/wg14/
+[problems in code]:
+[problems in the compiler]: 
+[commit]: https://github.com/ruby/ruby/commit/697eed63e81eff0e02226ceb6ab3bd2fd99000e3
