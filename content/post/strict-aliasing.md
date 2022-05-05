@@ -14,7 +14,7 @@ correct and exactly what happens during compilation. This model has helped
 me spot [problems in code] and has given me enough confidence to spot
 [problems in the compiler], but at the end of the day it's an abstract model
 from someone who doesn't work on the compiler that actually runs. Better than
-nothing!
+nothing! ** TODO REWORD problems in teh compiler part I dislike.
 
 The strict aliasing rules can be surprising because the way optimizers take
 advantage of them doesn't mesh well with the popular belief that pointers are
@@ -27,8 +27,9 @@ debugging if for nothing else.
 
 The relevant part in C99 is [§6.5p7], but in my head it basically boils down to
 "two value accesses are disjoint when the types are different, except when one
-of the types is a `char` type". Yes, this throws away some subtleties and it's
-not going to get me into [WG14].
+of the types is a `char` type". Yes, many subtleties are out the window and it's
+not going to get me into [WG14], but I think it's still a useful level of
+understanding.
 
 What happens when the optimizer can see that a write is disjoint with respect
 to a read? It can decide to reorder the program and do the read first if it
@@ -77,7 +78,7 @@ reorder:
     ret
 ```
 
-Ah ha! By default, when GCC gets to use the power granted to it by the
+Ah ha! By default, when GCC gets to use the powers granted to it by the
 standard, it can assume that `short` writes have no effect on `unsigned` reads,
 but `-fno-strict-aliasing` tells GCC to forget about that part of the standard.
 
@@ -104,7 +105,7 @@ $ make -j8 miniruby
 
 I'll be using GCC 11.2.0 on a GNU/Linux distribution.
 
-This example has to do with an out parameter, where we expect a function to do
+This example has to do with an output parameter, where we expect a function to do
 a write using the out parameter before returning. The call site looks like
 this:
 
@@ -142,24 +143,45 @@ else {
 }
 ```
 
+Let's focus on the code path where the lookup succeeds and break it down into
+a sequence of accesses by type:
 
-(*** TODO not happy with this paragraph. How do I show that there is a write and
-a read of mismatching type simpler?)
-Sorry for throwing code at you; I'm trying to give enough context so we can
-pretend to be the compiler ! We are interested in the code path where the
-lookup succeeds and we are inside the `if` block in `do_lookup()`. There
-are really just two accesses, a write to `VALUE` and a read from `st_table *`.
+1. write `unsigned long` aka `VALUE` through `valp`
+2. read `st_table *` using the `ics` local variable
 
+Uh oh, `unsigned long` and `st_table *` are distinct types, so by the aliasing
+rules the compiler is free to assume that the two accesses have no relation. If it decides
+to reorder and do the read before the write, that would betray our
+intention -- we want to make use of the output from the successful lookup so
+we always want the write to happen first!
+
+Does GCC tell us anything about this mismatch between our intention and what we wrote?
+Why yes:
 
 ```text
-vm_insnhelper.c:4948:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
- 4948 |         st_insert(ics, (st_data_t) ic, (st_data_t) Qtrue);
+vm_method.c:146:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
+  146 |         st_foreach(ics, rb_clear_constant_cache_for_id_i, (st_data_t) NULL);
       |         ^
-vm_insnhelper.c: In function ‘vm_ic_compile_i’:
-vm_insnhelper.c:4942:19: note: ‘ics’ declared here
- 4942 |         st_table *ics;
-      |                   ^
+class.c: In function ‘clear_constant_cache_i’:
+vm_method.c:143:15: note: ‘ics’ declared here
+  143 |     st_table *ics;
+      |               ^
 ```
+
+That's a bit of a strange warning to get if you expect accesses to happen in source
+code order. I suspect what has happened under the hood is that GCC _considered_
+putting the read before the write and while evaluating that schedule GCC detects that
+it reads from an uninitialized variable. I think GCC only sees this read-before-write schedule
+when interpreting the aliasing rules strictly because adding `-fno-strict-aliasing`
+makes the warning disappear.
+
+# Takeaways
+
+This post tries to build intuition for checking for this class of problems. 
+I had to dig into two functions but in practice we undertand the order we expect.
+- practical things to do like building with LTO
+- 
+
 [§6.5p7]: https://port70.net/%7Ensz/c/c99/n1256.html#6.5p7
 [WG14]: https://www.open-std.org/jtc1/sc22/wg14/
 [problems in code]:
