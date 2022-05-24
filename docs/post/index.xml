@@ -6,10 +6,163 @@
     <description>Thoughts from Alan (Posts)</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 22 Jul 2021 06:27:34 -0400</lastBuildDate>
+    <lastBuildDate>Mon, 23 May 2022 22:31:37 -0400</lastBuildDate>
     
     <atom:link href="https://alanwu.space/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>How I think about C99 strict aliasing rules</title>
+      <link>https://alanwu.space/post/strict-aliasing/</link>
+      <pubDate>Mon, 23 May 2022 22:31:37 -0400</pubDate>
+      
+      <guid>https://alanwu.space/post/strict-aliasing/</guid>
+      <description>&lt;p&gt;Recently I was asked about how to review C99 code for problems that arise from
+failing to follow the so called &amp;ldquo;strict aliasing rules&amp;rdquo;. I struggled to present
+my thought process while vetting code for this class of problems, so I thought
+I would write a post to hopefully make my explanation more coherent.&lt;/p&gt;
+&lt;p&gt;The strict aliasing rules can be surprising because the way optimizers take
+advantage of them doesn&amp;rsquo;t mesh well with the popular belief that pointers are
+&amp;ldquo;just numbers&amp;rdquo;. Ultimately, I think there are practical benefits to
+understanding the rules even if you disagree with them. Popular compilers such
+as GCC and Clang take advantage of the rules so knowing them can help with
+debugging if for nothing else.&lt;/p&gt;
+&lt;p&gt;This is just my simplified model for how C compilers make use of the rules, and
+I don&amp;rsquo;t claim that it&amp;rsquo;s 100% correct. However, I have found it useful enough to
+spot &lt;a href=&#34;https://marc.info/?l=ruby-core&amp;amp;m=161463889519092&#34;&gt;problems in code&lt;/a&gt; and when the code looked fine, used it to spot
+&lt;a href=&#34;https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101868&#34;&gt;a problem in the compiler&lt;/a&gt;.&lt;/p&gt;
+&lt;h1 id=&#34;rules&#34;&gt;What are the rules, anyways?&lt;/h1&gt;
+&lt;p&gt;The relevant part in C99 is &lt;a href=&#34;https://port70.net/%7Ensz/c/c99/n1256.html#6.5p7&#34;&gt;§6.5p7&lt;/a&gt;, but in my head it basically boils down to
+&amp;ldquo;two value accesses are disjoint when the types are different, except when one
+of the types is a &lt;code&gt;char&lt;/code&gt; type&amp;rdquo;. Yes, many subtleties are out the window and it&amp;rsquo;s
+not going to get me into &lt;a href=&#34;https://www.open-std.org/jtc1/sc22/wg14/&#34;&gt;WG14&lt;/a&gt;, but I think it&amp;rsquo;s a useful level of understanding
+regardless.&lt;/p&gt;
+&lt;p&gt;What happens when the optimizer can see that a write is disjoint with respect
+to a read? It can decide to reorder the program and do the read first if it
+seems profitable for performance.&lt;/p&gt;
+&lt;p&gt;Here is a &lt;a href=&#34;https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYMQAZi6kHAGTwGTAA5dwAjTGIQADZSAAdUBUJbBmc3D29fROSbAUDgsJZI6LjLTGtUoQImYgJ0908fC0wrPIZq2oIC0Iio2IsauobM5oUh7qDe4v6YgEoLVFdiZHYOVwZk4GD0AFINAEFiTBIsYggNrZ2AagAqflQ5/YPdgHYAIWfr77uH692vAARa4aAGfQ5fH4KBAkAh3eIEYj/IHXCDQ2F3OYPMGQ763BFIgHArg4iGHH7XY4EZYMX6oVCkl6vQHPDgLWicACsvE8HC0pFQnEc1wUSxWmH%2BACYfLwCJo2QsANbeDQAOg0AE5XhoAByvLyvHUxSQaQ1xDkcSQ8%2BUCzi8BQgDSkOV8tmkOCwGBQL0QJBoFjxOhRciUf2B%2BjRZDALhcLx8OgEKIOiDhG3hIK1ACenB4pH9bEEAHkGLRs67SFgWIZgOJy/hjpUAG6YB3lzCqCquRM53hBRMW/m0PDhYhZ5xYG2IvAsHsLKgGYAKABqeEwAHdC/FGD2ZIIRGJ2FJd/IlGobbpJfpqyBTMZzEPwg7IAtUAjUq2ALSFyXXD/jPZAsgGoar%2BW7oIYNjIL%2BADqYi0DB4zEHg1gfmIeBMMkRhErm5SVHYEAOCMni%2BAEUxFCUeg5CkAhEZRSTUQwPTkf0vi4e0nTDC4jR6GxVQTExfTRKxEy0cJXQCTMQkLKKyyrHoiKYGsPDsly1rloKHCqEaH7GtcwDIFBMaql4qKOKQ1y4IQJBSs01zOAGQaEtKkpzLK8pzAsCCYEwZyUEqICcpIxmBV4IVhZIoX6JwVqkDOMSSqqnKkLy/IafajrOu57o%2BkgSwEPEXYhhAYaOSErBrFpMQ6ZIekGdcRleLwmD4EQSHoHo/B7qI4hHp1J4qOo5YXqQa6jvEs5RRw3LJTaGmFl2BVwqgVDXJV1W1YZXDGaZqAORGNkuW5roeaQXk%2Bf0ED%2BZInKqsanJ3Q910xElFoxSlvBpRYGUuloJ0WpKvAzpyOrGV4YPgxD4NxO9tocEdv3ZfAHqICgu3hsGFDFWjjkoNGsbxrQibEMmqblumzDEGWub5owBDFqWNqVtWtb8vWFQ2M2rb8u2nbdtwvaCK0NoPqOlPjms/JTjO/Nzguy6rhuW68rmfX7j10h9YoA3nnoBhGDeZj6MOT6XQKb4CJ%2B36/lQDCoH%2BU4oWhGFBMAv7/kSQEgR%2BYEQchMFwQhDsEKhQ7O1hQI4a07OpPYDBOFxmQkXHEkUdk9HtKJCTp6kKcsS0bR8V0me8QIHGTIUgk8SJCfEYM4lkZXXDSWKcm%2BApSluha00wxpa26fpm3bRAZkWS11m7NKvh2dj%2B0Tz4rmZcdnneb5pvKoFiUaNdW%2BcjvO%2BTTFM6SFtMSn2f59n68M3qXaX1Oj9brI76IB5YtRUlRGZVsJwfc1QP9VbUan4MebUOqyDVoeDWsgtZniGnoUaTBxoy0mt3WanB5r5S7NcZaq1tL9zqg1Hae0og2SbvDBUp0V4XSujdSQGpAr0LoQwzkL1opqVSrfB0993IqQ4ADWKIBj63QviImIV8e63wfidZUMQNSqg1BoSUGouCSnirGTkGpJSsI4EAiRcNF6/V4fwvR5CTrNmJjHSQQA%3D%3D&#34;&gt;sample&lt;/a&gt; where we can see GCC making use of the aliasing rules:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-C&#34; data-lang=&#34;C&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;unsigned&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;reorder&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;foo)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;foo &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;short&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;ptr &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;short&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;)foo;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;ptr &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;foo;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Compiling with &lt;code&gt;-O2&lt;/code&gt; gives the following:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-asm&#34; data-lang=&#34;asm&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;reorder:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;mov&lt;/span&gt;     &lt;span style=&#34;color:#66d9ef&#34;&gt;DWORD&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;PTR&lt;/span&gt; [&lt;span style=&#34;color:#66d9ef&#34;&gt;rdi&lt;/span&gt;], &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;xor&lt;/span&gt;     &lt;span style=&#34;color:#66d9ef&#34;&gt;eax&lt;/span&gt;, &lt;span style=&#34;color:#66d9ef&#34;&gt;eax&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;ret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The code is using an idiom to zero out &lt;code&gt;eax&lt;/code&gt;, but the gist is that it&amp;rsquo;s returning zero.
+GCC&amp;rsquo;s output has a different order than our source program; &lt;code&gt;*ptr = 1&lt;/code&gt; seems to
+have no effect on the final read from &lt;code&gt;foo&lt;/code&gt;, even though one might understand
+&lt;code&gt;foo&lt;/code&gt; and &lt;code&gt;ptr&lt;/code&gt; as having the same address and expect &lt;code&gt;*ptr = 1&lt;/code&gt; to happen
+before &lt;code&gt;return *foo&lt;/code&gt;, as ordered in the source code. Adding to the surprise, GCC has combined the two
+indirect writes into one, seemingly via the understanding that &lt;code&gt;foo&lt;/code&gt; and &lt;code&gt;ptr&lt;/code&gt;
+have the same address! There seems to be some strange contradiction.&lt;/p&gt;
+&lt;p&gt;Compile with &lt;code&gt;-O2 -fno-strict-aliasing&lt;/code&gt; and we get something different:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-asm&#34; data-lang=&#34;asm&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;reorder:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;mov&lt;/span&gt;     &lt;span style=&#34;color:#66d9ef&#34;&gt;DWORD&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;PTR&lt;/span&gt; [&lt;span style=&#34;color:#66d9ef&#34;&gt;rdi&lt;/span&gt;], &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;mov&lt;/span&gt;     &lt;span style=&#34;color:#66d9ef&#34;&gt;eax&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;ret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Ah ha! By default, when GCC gets to use the powers granted to it by the
+standard, it can assume that &lt;code&gt;short&lt;/code&gt; writes have no effect on &lt;code&gt;unsigned&lt;/code&gt; reads,
+but &lt;code&gt;-fno-strict-aliasing&lt;/code&gt; tells GCC to forget about that part of the standard.&lt;/p&gt;
+&lt;p&gt;GCC is organized as optimization passes and separate passes don&amp;rsquo;t necessarily
+share information. The strange inconsistency we saw when we compiled with default
+options is likely a result of this &amp;ndash; the &lt;code&gt;mov&lt;/code&gt; and the &lt;code&gt;xor&lt;/code&gt; are likely coming from
+two separate parts of the compiler that don&amp;rsquo;t share the same understanding of our
+program.&lt;/p&gt;
+&lt;p&gt;The &lt;a href=&#34;https://gcc.gnu.org/bugs/&#34;&gt;bug reporting guide for GCC&lt;/a&gt; has a section
+about &lt;code&gt;-fno-strict-aliasing&lt;/code&gt;, perhaps because many people have been surprised
+by this optimization:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;To disable optimizations based on alias-analysis for faulty legacy code, the
+option &lt;code&gt;-fno-strict-aliasing&lt;/code&gt; can be used as a work-around.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Oof. Okay GCC, type-based alias analysis is great and useful, but no need to judge this hard.&lt;/p&gt;
+&lt;h1 id=&#34;snap-back-to-reality&#34;&gt;Snap back to reality&lt;/h1&gt;
+&lt;p&gt;Let&amp;rsquo;s go look at a practical example in CRuby where we did not follow the
+rules. If you&amp;rsquo;d like to follow along, you can grab this &lt;a href=&#34;https://github.com/ruby/ruby/commit/697eed63e81eff0e02226ceb6ab3bd2fd99000e3&#34;&gt;commit&lt;/a&gt; and build with
+the following commands:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ ./autogen.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ ./configure cflags&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;-flto LDFLAGS&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;-flto
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ make -j8 miniruby
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;I&amp;rsquo;ll be using GCC 11.2.0 on a GNU/Linux distribution.&lt;/p&gt;
+&lt;p&gt;This example has to do with an output parameter, where we expect a function to do
+a write using the out parameter before returning. The call site looks like
+this:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-C&#34; data-lang=&#34;C&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;typedef&lt;/span&gt; VALUE &lt;span style=&#34;color:#66d9ef&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;typedef&lt;/span&gt; ID &lt;span style=&#34;color:#66d9ef&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;typedef&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; st_table st_table;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;rb_id_table_lookup&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; rb_id_table &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;tbl, ID id, VALUE &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;valp);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;//                                                            ^^^^
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;//                                                  out param of interest
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;do_lookup&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;struct&lt;/span&gt; rb_id_table &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;const_cache, ID id)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    st_table &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;ics;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (rb_id_table_lookup(constant_cache, id, (VALUE &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ics)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// successful lookup
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        st_foreach(ics, iterator_fn, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;When &lt;code&gt;rb_id_table_lookup()&lt;/code&gt; returns 1, it indicates that it has written through &lt;code&gt;valp&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-C&#34; data-lang=&#34;C&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;//... inside rb_id_table_lookup()
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (index &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;valp &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; tbl&lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt;items[index].val;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; TRUE;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; FALSE;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Let&amp;rsquo;s focus on the code path where the lookup succeeds and break it down into
+a sequence of accesses by type:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;write &lt;code&gt;unsigned long&lt;/code&gt; aka &lt;code&gt;VALUE&lt;/code&gt; through &lt;code&gt;valp&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;read &lt;code&gt;st_table *&lt;/code&gt; using the &lt;code&gt;ics&lt;/code&gt; local variable&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Uh oh, &lt;code&gt;unsigned long&lt;/code&gt; and &lt;code&gt;st_table *&lt;/code&gt; are distinct types, so by the &lt;a href=&#34;#rules&#34;&gt;aliasing
+rules&lt;/a&gt; the compiler is free to assume that the two accesses have no relation. If it decides
+to reorder and do the read before the write, that would betray our
+intention &amp;ndash; we want to make use of the output from the successful lookup so
+we always want the write to happen first!&lt;/p&gt;
+&lt;p&gt;Does GCC tell us anything about this mismatch between our intention and what we wrote?
+Why yes:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vm_method.c:146:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  146 |         st_foreach(ics, rb_clear_constant_cache_for_id_i, (st_data_t) NULL);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      |         ^
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;class.c: In function ‘clear_constant_cache_i’:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vm_method.c:143:15: note: ‘ics’ declared here
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  143 |     st_table *ics;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      |               ^
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;That&amp;rsquo;s a bit of a strange warning to get if you expect accesses to happen in source
+code order. I suspect what has happened under the hood is that GCC &lt;em&gt;considered&lt;/em&gt;
+putting the read before the write and while evaluating that schedule GCC detects that
+it reads from an uninitialized variable. I think GCC only sees this read-before-write schedule
+when interpreting the aliasing rules strictly because adding &lt;code&gt;-fno-strict-aliasing&lt;/code&gt;
+makes the warning disappear.&lt;/p&gt;
+&lt;p&gt;The fix for this issue makes the code write and read through the same type. If you&amp;rsquo;re
+in the mood for an exercise, you can imagine what the code change looks like before
+looking at the &lt;a href=&#34;https://github.com/ruby/ruby/commit/5c61caa48154e3e43ff29ab865310aa9bdd9e83a&#34;&gt;patch&lt;/a&gt;.&lt;/p&gt;
+&lt;h1 id=&#34;takeaways&#34;&gt;Takeaways&lt;/h1&gt;
+&lt;p&gt;This post tries to build intuition for spotting strict aliasing issues.
+The analysis I showed involves distilling the program under review into accesses by
+type, sort of like taking a projection of it.
+The CRuby example is &lt;em&gt;interprocedural&lt;/em&gt; and to
+get all the requisite information for our analysis we needed to reference two
+functions in separate files. Similarly, GCC issues a warning about
+the code only when we build with &lt;a href=&#34;https://gcc.gnu.org/wiki/LinkTimeOptimization&#34;&gt;link time optimization&lt;/a&gt;,
+where it can reason about the two functions in separate translation units together.&lt;/p&gt;
+&lt;p&gt;Have fun coding in ISO C and be careful casting pointers!&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Write barriers and an old Ruby bug</title>
@@ -1351,14 +1504,14 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 &lt;li&gt;Failing to insert write barriers can cause catastrophic failures such as crashes and data corruption&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2 id=&#34;footnotes&#34;&gt;Footnotes&lt;/h2&gt;
-&lt;section class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
+&lt;div class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
 &lt;hr&gt;
 &lt;ol&gt;
-&lt;li id=&#34;fn:1&#34; role=&#34;doc-endnote&#34;&gt;
+&lt;li id=&#34;fn:1&#34;&gt;
 &lt;p&gt;This is a textbook tri-color mark algorithm. Typically, the three colors are white, grey, and black. I chose different colors in an effort to help &lt;a href=&#34;https://davidmathlogic.com/colorblind&#34;&gt;colorblind&lt;/a&gt; readers.&amp;#160;&lt;a href=&#34;#fnref:1&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;/section&gt;
+&lt;/div&gt;
 </description>
     </item>
     
