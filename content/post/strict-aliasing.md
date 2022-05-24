@@ -111,8 +111,8 @@ a write using the out parameter before returning. The call site looks like
 this:
 
 ```C
-typedef VALUE unsigned long;
-typedef ID unsigned long;
+typedef unsigned long VALUE;
+typedef unsigned long ID;
 typedef struct st_table st_table;
 
 int rb_id_table_lookup(struct rb_id_table *tbl, ID id, VALUE *valp);
