@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+
+
+
+<html lang="en-us" data-theme="">
+<head>
+    
+        
+<meta charset="utf-8">
+<meta name="HandheldFriendly" content="True">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<title>How I think about C99 strict aliasing rules - Thoughts from Alan</title>
+<meta name="description" content="">
+
+<link rel="icon" type="image/png" href="https://alanwu.space/favicon.png">
+<link rel="apple-touch-icon-precomposed" href="https://alanwu.space/favicon.png">
+
+
+
+    
+
+
+
+
+
+    
+    
+    
+
+    
+        <link rel="stylesheet" href="https://alanwu.space/css/style.e5ec8e96139fb72189ec799ef6fa88ee336396e113a051759e0ec060eadb5ecf.css" integrity="sha256-5eyOlhOftyGJ7Hme9vqI7jNjluEToFF1ng7AYOrbXs8=">
+    
+
+
+
+
+
+
+
+<meta property="og:title" content="How I think about C99 strict aliasing rules" />
+<meta property="og:description" content="Recently I was asked about how to review C99 code for problems that arise from failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to present my thought process while vetting code for this class of problems, so I thought I would write a post to hopefully make my explanation more coherent.
+The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are &ldquo;just numbers&rdquo;." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://alanwu.space/post/strict-aliasing/" /><meta property="article:section" content="post" />
+<meta property="article:published_time" content="2022-05-23T22:31:37-04:00" />
+<meta property="article:modified_time" content="2022-05-23T22:31:37-04:00" />
+
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="How I think about C99 strict aliasing rules"/>
+<meta name="twitter:description" content="Recently I was asked about how to review C99 code for problems that arise from failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to present my thought process while vetting code for this class of problems, so I thought I would write a post to hopefully make my explanation more coherent.
+The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are &ldquo;just numbers&rdquo;."/>
+
+
+
+
+
+
+
+
+
+
+
+    
+</head>
+<body>
+    <a class="skip-main" href="#main">Skip to main content</a>
+    <div class="container">
+        <header class="common-header"> 
+            
+                <h1 class="site-title">
+    <a href="/">Thoughts from Alan</a>
+</h1>
+
+    <nav></nav>
+
+
+
+            
+        </header>
+        <main id="main" tabindex="-1"> 
+            
+    
+    
+    <article class="post h-entry">
+        <header class="post-header">
+            <h1 class="p-name post-title">How I think about C99 strict aliasing rules</h1>
+        </header>
+        <div class="content e-content">
+            <p>Recently I was asked about how to review C99 code for problems that arise from
+failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to present
+my thought process while vetting code for this class of problems, so I thought
+I would write a post to hopefully make my explanation more coherent.</p>
+<p>The strict aliasing rules can be surprising because the way optimizers take
+advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are
+&ldquo;just numbers&rdquo;. Ultimately, I think there are practical benefits to
+understanding the rules even if you disagree with them. Popular compilers such
+as GCC and Clang take advantage of the rules so knowing them can help with
+debugging if for nothing else.</p>
+<p>This is just my simplified model for how C compilers make use of the rules, and
+I don&rsquo;t claim that it&rsquo;s 100% correct. However, I have found it useful enough to
+spot <a href="https://marc.info/?l=ruby-core&amp;m=161463889519092">problems in code</a> and when the code looked fine, used it to spot
+<a href="https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101868">a problem in the compiler</a>.</p>
+<h1 id="rules">What are the rules, anyways?</h1>
+<p>The relevant part in C99 is <a href="https://port70.net/%7Ensz/c/c99/n1256.html#6.5p7">§6.5p7</a>, but in my head it basically boils down to
+&ldquo;two value accesses are disjoint when the types are different, except when one
+of the types is a <code>char</code> type&rdquo;. Yes, many subtleties are out the window and it&rsquo;s
+not going to get me into <a href="https://www.open-std.org/jtc1/sc22/wg14/">WG14</a>, but I think it&rsquo;s a useful level of understanding
+regardless.</p>
+<p>What happens when the optimizer can see that a write is disjoint with respect
+to a read? It can decide to reorder the program and do the read first if it
+seems profitable for performance.</p>
+<p>Here is a <a href="https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYMQAZi6kHAGTwGTAA5dwAjTGIQADZSAAdUBUJbBmc3D29fROSbAUDgsJZI6LjLTGtUoQImYgJ0908fC0wrPIZq2oIC0Iio2IsauobM5oUh7qDe4v6YgEoLVFdiZHYOVwZk4GD0AFINAEFiTBIsYggNrZ2AagAqflQ5/YPdgHYAIWfr77uH692vAARa4aAGfQ5fH4KBAkAh3eIEYj/IHXCDQ2F3OYPMGQ763BFIgHArg4iGHH7XY4EZYMX6oVCkl6vQHPDgLWicACsvE8HC0pFQnEc1wUSxWmH%2BACYfLwCJo2QsANbeDQAOg0AE5XhoAByvLyvHUxSQaQ1xDkcSQ8%2BUCzi8BQgDSkOV8tmkOCwGBQL0QJBoFjxOhRciUf2B%2BjRZDALhcLx8OgEKIOiDhG3hIK1ACenB4pH9bEEAHkGLRs67SFgWIZgOJy/hjpUAG6YB3lzCqCquRM53hBRMW/m0PDhYhZ5xYG2IvAsHsLKgGYAKABqeEwAHdC/FGD2ZIIRGJ2FJd/IlGobbpJfpqyBTMZzEPwg7IAtUAjUq2ALSFyXXD/jPZAsgGoar%2BW7oIYNjIL%2BADqYi0DB4zEHg1gfmIeBMMkRhErm5SVHYEAOCMni%2BAEUxFCUeg5CkAhEZRSTUQwPTkf0vi4e0nTDC4jR6GxVQTExfTRKxEy0cJXQCTMQkLKKyyrHoiKYGsPDsly1rloKHCqEaH7GtcwDIFBMaql4qKOKQ1y4IQJBSs01zOAGQaEtKkpzLK8pzAsCCYEwZyUEqICcpIxmBV4IVhZIoX6JwVqkDOMSSqqnKkLy/IafajrOu57o%2BkgSwEPEXYhhAYaOSErBrFpMQ6ZIekGdcRleLwmD4EQSHoHo/B7qI4hHp1J4qOo5YXqQa6jvEs5RRw3LJTaGmFl2BVwqgVDXJV1W1YZXDGaZqAORGNkuW5roeaQXk%2Bf0ED%2BZInKqsanJ3Q910xElFoxSlvBpRYGUuloJ0WpKvAzpyOrGV4YPgxD4NxO9tocEdv3ZfAHqICgu3hsGFDFWjjkoNGsbxrQibEMmqblumzDEGWub5owBDFqWNqVtWtb8vWFQ2M2rb8u2nbdtwvaCK0NoPqOlPjms/JTjO/Nzguy6rhuW68rmfX7j10h9YoA3nnoBhGDeZj6MOT6XQKb4CJ%2B36/lQDCoH%2BU4oWhGFBMAv7/kSQEgR%2BYEQchMFwQhDsEKhQ7O1hQI4a07OpPYDBOFxmQkXHEkUdk9HtKJCTp6kKcsS0bR8V0me8QIHGTIUgk8SJCfEYM4lkZXXDSWKcm%2BApSluha00wxpa26fpm3bRAZkWS11m7NKvh2dj%2B0Tz4rmZcdnneb5pvKoFiUaNdW%2BcjvO%2BTTFM6SFtMSn2f59n68M3qXaX1Oj9brI76IB5YtRUlRGZVsJwfc1QP9VbUan4MebUOqyDVoeDWsgtZniGnoUaTBxoy0mt3WanB5r5S7NcZaq1tL9zqg1Hae0og2SbvDBUp0V4XSujdSQGpAr0LoQwzkL1opqVSrfB0993IqQ4ADWKIBj63QviImIV8e63wfidZUMQNSqg1BoSUGouCSnirGTkGpJSsI4EAiRcNF6/V4fwvR5CTrNmJjHSQQA%3D%3D">sample</a> where we can see GCC making use of the aliasing rules:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">unsigned</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">reorder</span>(<span style="color:#66d9ef">unsigned</span> <span style="color:#f92672">*</span>foo)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>foo <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">short</span> <span style="color:#f92672">*</span>ptr <span style="color:#f92672">=</span> (<span style="color:#66d9ef">short</span> <span style="color:#f92672">*</span>)foo;
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>ptr <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>foo;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Compiling with <code>-O2</code> gives the following:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">DWORD</span> <span style="color:#66d9ef">PTR</span> [<span style="color:#66d9ef">rdi</span>], <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span>     <span style="color:#66d9ef">eax</span>, <span style="color:#66d9ef">eax</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span></code></pre></div><p>The code is using an idiom to zero out <code>eax</code>, but the gist is that it&rsquo;s returning zero.
+GCC&rsquo;s output has a different order than our source program; <code>*ptr = 1</code> seems to
+have no effect on the final read from <code>foo</code>, even though one might understand
+<code>foo</code> and <code>ptr</code> as having the same address and expect <code>*ptr = 1</code> to happen
+before <code>return *foo</code>, as ordered in the source code. Adding to the surprise, GCC has combined the two
+indirect writes into one, seemingly via the understanding that <code>foo</code> and <code>ptr</code>
+have the same address! There seems to be some strange contradiction.</p>
+<p>Compile with <code>-O2 -fno-strict-aliasing</code> and we get something different:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">DWORD</span> <span style="color:#66d9ef">PTR</span> [<span style="color:#66d9ef">rdi</span>], <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">eax</span>, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span></code></pre></div><p>Ah ha! By default, when GCC gets to use the powers granted to it by the
+standard, it can assume that <code>short</code> writes have no effect on <code>unsigned</code> reads,
+but <code>-fno-strict-aliasing</code> tells GCC to forget about that part of the standard.</p>
+<p>GCC is organized as optimization passes and separate passes don&rsquo;t necessarily
+share information. The strange inconsistency we saw when we compiled with default
+options is likely a result of this &ndash; the <code>mov</code> and the <code>xor</code> are likely coming from
+two separate parts of the compiler that don&rsquo;t share the same understanding of our
+program.</p>
+<p>The <a href="https://gcc.gnu.org/bugs/">bug reporting guide for GCC</a> has a section
+about <code>-fno-strict-aliasing</code>, perhaps because many people have been surprised
+by this optimization:</p>
+<blockquote>
+<p>To disable optimizations based on alias-analysis for faulty legacy code, the
+option <code>-fno-strict-aliasing</code> can be used as a work-around.</p>
+</blockquote>
+<p>Oof. Okay GCC, type-based alias analysis is great and useful, but no need to judge this hard.</p>
+<h1 id="snap-back-to-reality">Snap back to reality</h1>
+<p>Let&rsquo;s go look at a practical example in CRuby where we did not follow the
+rules. If you&rsquo;d like to follow along, you can grab this <a href="https://github.com/ruby/ruby/commit/697eed63e81eff0e02226ceb6ab3bd2fd99000e3">commit</a> and build with
+the following commands:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./autogen.sh
+</span></span><span style="display:flex;"><span>$ ./configure cflags<span style="color:#f92672">=</span>-flto LDFLAGS<span style="color:#f92672">=</span>-flto
+</span></span><span style="display:flex;"><span>$ make -j8 miniruby
+</span></span></code></pre></div><p>I&rsquo;ll be using GCC 11.2.0 on a GNU/Linux distribution.</p>
+<p>This example has to do with an output parameter, where we expect a function to do
+a write using the out parameter before returning. The call site looks like
+this:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> VALUE <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> ID <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> st_table st_table;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">rb_id_table_lookup</span>(<span style="color:#66d9ef">struct</span> rb_id_table <span style="color:#f92672">*</span>tbl, ID id, VALUE <span style="color:#f92672">*</span>valp);
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//                                                            ^^^^
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//                                                  out param of interest
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">do_lookup</span>(<span style="color:#66d9ef">struct</span> rb_id_table <span style="color:#f92672">*</span>const_cache, ID id)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    st_table <span style="color:#f92672">*</span>ics;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (rb_id_table_lookup(constant_cache, id, (VALUE <span style="color:#f92672">*</span>) <span style="color:#f92672">&amp;</span>ics)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// successful lookup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        st_foreach(ics, iterator_fn, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>When <code>rb_id_table_lookup()</code> returns 1, it indicates that it has written through <code>valp</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#75715e">//... inside rb_id_table_lookup()
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (index <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>valp <span style="color:#f92672">=</span> tbl<span style="color:#f92672">-&gt;</span>items[index].val;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Let&rsquo;s focus on the code path where the lookup succeeds and break it down into
+a sequence of accesses by type:</p>
+<ol>
+<li>write <code>unsigned long</code> aka <code>VALUE</code> through <code>valp</code></li>
+<li>read <code>st_table *</code> using the <code>ics</code> local variable</li>
+</ol>
+<p>Uh oh, <code>unsigned long</code> and <code>st_table *</code> are distinct types, so by the <a href="#rules">aliasing
+rules</a> the compiler is free to assume that the two accesses have no relation. If it decides
+to reorder and do the read before the write, that would betray our
+intention &ndash; we want to make use of the output from the successful lookup so
+we always want the write to happen first!</p>
+<p>Does GCC tell us anything about this mismatch between our intention and what we wrote?
+Why yes:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>vm_method.c:146:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
+</span></span><span style="display:flex;"><span>  146 |         st_foreach(ics, rb_clear_constant_cache_for_id_i, (st_data_t) NULL);
+</span></span><span style="display:flex;"><span>      |         ^
+</span></span><span style="display:flex;"><span>class.c: In function ‘clear_constant_cache_i’:
+</span></span><span style="display:flex;"><span>vm_method.c:143:15: note: ‘ics’ declared here
+</span></span><span style="display:flex;"><span>  143 |     st_table *ics;
+</span></span><span style="display:flex;"><span>      |               ^
+</span></span></code></pre></div><p>That&rsquo;s a bit of a strange warning to get if you expect accesses to happen in source
+code order. I suspect what has happened under the hood is that GCC <em>considered</em>
+putting the read before the write and while evaluating that schedule GCC detects that
+it reads from an uninitialized variable. I think GCC only sees this read-before-write schedule
+when interpreting the aliasing rules strictly because adding <code>-fno-strict-aliasing</code>
+makes the warning disappear.</p>
+<p>The fix for this issue makes the code write and read through the same type. If you&rsquo;re
+in the mood for an exercise, you can imagine what the code change looks like before
+looking at the <a href="https://github.com/ruby/ruby/commit/5c61caa48154e3e43ff29ab865310aa9bdd9e83a">patch</a>.</p>
+<h1 id="takeaways">Takeaways</h1>
+<p>This post tries to build intuition for spotting strict aliasing issues.
+The analysis I showed involves distilling the program under review into accesses by
+type, sort of like taking a projection of it.
+The CRuby example is <em>interprocedural</em> and to
+get all the requisite information for our analysis we needed to reference two
+functions in separate files. Similarly, GCC issues a warning about
+the code only when we build with <a href="https://gcc.gnu.org/wiki/LinkTimeOptimization">link time optimization</a>,
+where it can reason about the two functions in separate translation units together.</p>
+<p>Have fun coding in ISO C and be careful casting pointers!</p>
+
+        </div>
+        
+
+
+<div class="post-info">
+    
+        <div class="post-date dt-published">2022-05-23</div>
+    
+    
+    <a class="post-hidden-url u-url" href="https://alanwu.space/post/strict-aliasing/">https://alanwu.space/post/strict-aliasing/</a>
+    <div class="post-hidden-author p-author"></div>
+
+    <div class="post-taxonomies">
+        
+            
+    </div>
+</div>
+
+    </article>
+
+    
+
+    
+
+    
+
+
+        </main>
+        <footer class="common-footer"></footer>
+    </div>
+</body>
+</html>
