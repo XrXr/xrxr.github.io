@@ -17,10 +17,10 @@
       <pubDate>Mon, 23 May 2022 22:31:37 -0400</pubDate>
       
       <guid>https://alanwu.space/post/strict-aliasing/</guid>
-      <description>&lt;p&gt;Recently I was asked about how to review C99 code for problems that arise from
-failing to follow the so called &amp;ldquo;strict aliasing rules&amp;rdquo;. I struggled to present
-my thought process while vetting code for this class of problems, so I thought
-I would write a post to hopefully make my explanation more coherent.&lt;/p&gt;
+      <description>&lt;p&gt;Recently I was asked how I review C99 code for problems that arise from
+failing to follow the so called &amp;ldquo;strict aliasing rules&amp;rdquo;. I struggled to
+answer, so I thought I would write a post to hopefully make my explanation more
+coherent.&lt;/p&gt;
 &lt;p&gt;The strict aliasing rules can be surprising because the way optimizers take
 advantage of them doesn&amp;rsquo;t mesh well with the popular belief that pointers are
 &amp;ldquo;just numbers&amp;rdquo;. Ultimately, I think there are practical benefits to

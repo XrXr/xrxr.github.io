@@ -3,10 +3,10 @@ title: "How I think about C99 strict aliasing rules"
 date: 2022-05-23T22:31:37-04:00
 ---
 
-Recently I was asked about how to review C99 code for problems that arise from
-failing to follow the so called "strict aliasing rules". I struggled to present
-my thought process while vetting code for this class of problems, so I thought
-I would write a post to hopefully make my explanation more coherent.
+Recently I was asked how I review C99 code for problems that arise from
+failing to follow the so called "strict aliasing rules". I struggled to
+answer, so I thought I would write a post to hopefully make my explanation more
+coherent.
 
 The strict aliasing rules can be surprising because the way optimizers take
 advantage of them doesn't mesh well with the popular belief that pointers are
