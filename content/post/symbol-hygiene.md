@@ -5,7 +5,7 @@ date: 2023-02-14T16:08:02.796Z
 
 {{<html>}}
 <style>
-code { white-space: nowrap; }
+code:not([data-lang]) { white-space: nowrap; }
 </style>
 {{</html>}}
 

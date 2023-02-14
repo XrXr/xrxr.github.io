@@ -19,7 +19,7 @@
       <guid>https://alanwu.space/post/symbol-hygiene/</guid>
       <description>
 &lt;style&gt;
-code { white-space: nowrap; }
+code:not([data-lang]) { white-space: nowrap; }
 &lt;/style&gt;
 
 
