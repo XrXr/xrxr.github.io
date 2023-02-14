@@ -6,10 +6,491 @@
     <description>Thoughts from Alan</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 23 May 2022 22:31:37 -0400</lastBuildDate>
+    <lastBuildDate>Tue, 14 Feb 2023 16:08:02 +0000</lastBuildDate>
     
     <atom:link href="https://alanwu.space/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Linking Rust and C: Practicing Symbol Hygiene</title>
+      <link>https://alanwu.space/post/symbol-hygiene/</link>
+      <pubDate>Tue, 14 Feb 2023 16:08:02 +0000</pubDate>
+      
+      <guid>https://alanwu.space/post/symbol-hygiene/</guid>
+      <description>
+&lt;style&gt;
+code { white-space: nowrap; }
+&lt;/style&gt;
+
+
+&lt;p&gt;This is a post about the bits and pieces I learned while trying to fix a symbol
+leakage problem for YJIT-enabled Ruby. The symbols I&amp;rsquo;m talking about are the
+labels in object, executable, and shared library files that help linkers work.&lt;/p&gt;
+&lt;p&gt;Thinking back to my first few contacts with linkers, I found them somewhat
+mysterious. I think this is because I get errors from compilers more frequently
+than from linkers. Also, compared to compilers, linkers are generally in a
+worse vantage point for giving context-rich error messages that use familiar
+programming language level terms.&lt;/p&gt;
+&lt;p&gt;This post is pretty much all about linking on Unix-like systems. I hope my
+adventures with various linkers here can cut their mystic a bit.&lt;/p&gt;
+&lt;h2 id=&#34;linking-two-rust-staticlibs-together&#34;&gt;Linking two Rust &lt;code&gt;staticlibs&lt;/code&gt; together?&lt;/h2&gt;
+&lt;p&gt;A good reason for caring about the list of symbols available in a static
+library is that it helps to avoid link-time conflicts. Generally speaking,
+linkers complain when there are multiple symbol definitions with identical
+names. There is ambiguity as to which definition the linker should pick in
+these situations, so they choose to error out. Savvy users might know about the
+&lt;code&gt;--allow-multiple-definition&lt;/code&gt; option or equivalents, so it&amp;rsquo;s not an
+insurmountable problem. However, these options are instructions for resolving
+conflicts, each with different tradeoffs. It&amp;rsquo;s nicer for static library
+consumers when there are no conflicts in the first place.&lt;/p&gt;
+&lt;p&gt;This brings us to &lt;a href=&#34;https://github.com/rust-lang/rust/issues/44322&#34;&gt;&lt;code&gt;rust-lang/rust#44322&lt;/code&gt;&lt;/a&gt;. To summarize the issue, two Rust
+staticlibs can link without conflicts when &lt;a href=&#34;https://doc.rust-lang.org/rustc/codegen-options/index.html#lto&#34;&gt;LTO&lt;/a&gt; is off and fail to link when
+LTO is on. As of Rust 1.67.1, support for generating staticlibs that link well
+together is spotty.&lt;/p&gt;
+&lt;h2 id=&#34;impact-to-yjit&#34;&gt;Impact to YJIT&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/ruby/ruby&#34;&gt;CRuby&lt;/a&gt; can be configured to build as a static library or a shared library.
+YJIT, the Rust component, is optional. Users can choose to build Ruby without
+it.&lt;/p&gt;
+&lt;p&gt;Let&amp;rsquo;s say you&amp;rsquo;ve been linking against the CRuby static library before YJIT was
+an option. You also link against some unrelated Rust staticlibs, maybe prebuilt
+ones. A new CRuby release rolls around, and you decide to try out YJIT. You
+build the new YJIT-enabled CRuby static library and pass it to your old build
+setup. What happens?&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality&#39;
+&amp;hellip;&lt;/p&gt;
+&lt;p&gt;collect2: error: ld returned 1 exit status&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Oof. Not fun. Who&amp;rsquo;s &lt;code&gt;collect2&lt;/code&gt; and what&amp;rsquo;s &lt;code&gt;rust_eh_personality&lt;/code&gt; anyways? Maybe
+you decide to disable YJIT because it&amp;rsquo;s the new thing that causes build
+problems for you. YJIT loses a user.&lt;/p&gt;
+&lt;p&gt;Zooming out from this admittedly contrived user story, the general point here
+is that YJIT, by changing the list of symbols that are visible in Ruby&amp;rsquo;s static
+library, can cause build failures for consumers. The list of symbols available
+in a static library has a close relation to its public interface, so you
+shouldn&amp;rsquo;t even need to fully subscribe to &lt;a href=&#34;https://www.hyrumslaw.com&#34;&gt;Hyrum&amp;rsquo;s Law&lt;/a&gt; to see how changing the
+list can cause problems.&lt;/p&gt;
+&lt;h2 id=&#34;earlier&#34;&gt;How linkers handle static libraries (archive libraries)&lt;/h2&gt;
+&lt;p&gt;Structurally, static libraries are not much more than a collection (an archive,
+if you will) of object files. Passing a static library to the linker is not
+equivalent to passing all of its member objects, though. Traditionally,
+linkers pull objects out of archives on an as-needed basis. Say we have an
+archive, &lt;code&gt;libmy.a&lt;/code&gt;. Inside, we have &lt;code&gt;a.o&lt;/code&gt;, which defines &lt;code&gt;_a&lt;/code&gt;, and
+&lt;code&gt;b.o&lt;/code&gt; which defines &lt;code&gt;_b&lt;/code&gt;. When we only need &lt;code&gt;_a&lt;/code&gt;, the linker would only
+link against &lt;code&gt;a.o&lt;/code&gt;; &lt;code&gt;b.o&lt;/code&gt; would not be extracted from the archive. Some
+static libraries take advantage of this behavior to help users get smaller
+final images. For example, in the musl libc archive Alpine Linux ships,
+each library function gets their own object (try &lt;code&gt;ar t /usr/lib/libc.a&lt;/code&gt;).
+Only the libc functions you use end up in the final image.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;This selective linking behavior can mask multiple definition errors.&lt;/em&gt; Let&amp;rsquo;s
+look at a concrete reproducer for &lt;a href=&#34;https://github.com/rust-lang/rust/issues/44322&#34;&gt;&lt;code&gt;rust-lang/rust#44322&lt;/code&gt;&lt;/a&gt; and look at what
+objects the linker chooses to extract.&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# This is repro.sh. It assumes you&amp;#39;re working with GNU Binutils.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Run in an empty directory.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;CC&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;cc
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;RUSTC&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;rustc +1.67.1&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# Your distro&amp;#39;s rustc might not support this +... syntax.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;CODEGEN_OPTS&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-O&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;[&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;$1&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;lto&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;]&lt;/span&gt;; &lt;span style=&#34;color:#66d9ef&#34;&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    CODEGEN_OPTS&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;CODEGEN_OPTS&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt; -Clto&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o errexit
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o nounset
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o xtrace
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Make libone.a. It defines the &amp;#34;_one&amp;#34; symbol.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;printf &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%s&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;#[no_mangle] pub extern &amp;#34;C&amp;#34; fn one() -&amp;gt; std::ffi::c_int { 1 }&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    | $RUSTC $CODEGEN_OPTS --crate-type&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;staticlib -o libone.a -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Make libtwo.a. It defines the &amp;#34;_two&amp;#34; symbol.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;printf &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%s&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;#[no_mangle] pub extern &amp;#34;C&amp;#34; fn two() -&amp;gt; std::ffi::c_int { 2 }&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    | $RUSTC $CODEGEN_OPTS --crate-type&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;staticlib -o libtwo.a -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Make my.o, which calls both one() and two()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;printf &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%s&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;int one(void); int two(void); void my(void) { one(); two(); }&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    | $CC -x c -std&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;c99 -c -o my.o -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Link everything together to produce libmy.so.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# `--trace-symbol=...` is a GNU linker feature.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$CC -shared -Wl,--trace-symbol&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;one -Wl,--trace-symbol&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;two -Wl,--trace-symbol&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;rust_eh_personality -o libmy.so my.o libone.a libtwo.a
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Success!&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Run &lt;code&gt;sh repro.sh lto&lt;/code&gt; to see the link error:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$                 &lt;span style=&#34;color:#75715e&#34;&gt;# Some filtering for brevity&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ sh repro.sh lto 2&amp;gt;&amp;amp;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; | cut -d &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39; &amp;#39;&lt;/span&gt; -f2-
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&amp;lt;snip&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libone.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libone.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: definition of one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libone.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libone.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: definition of rust_eh_personality
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libtwo.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: definition of two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libtwo.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: in &lt;span style=&#34;color:#66d9ef&#34;&gt;function&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;`&lt;/span&gt;rust_eh_personality&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;:
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;multiple definition of `rust_eh_personality&amp;#39;&lt;/span&gt;; libone.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libone.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;:/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/personality/gcc.rs:244: first defined here
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;error: ld returned &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; exit status
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The linker&amp;rsquo;s tracing output shows the process that leads to the conflict.
+Here is an abridged version of the story to highlight the important pieces:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# expected, due to what we wrote in `my()`
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# The linker extracts `libone.rust_out.o` to satisfy the reference to `one`.
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# The same object defines `rust_eh_personality`
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libone.a(libone.rust_out.o): definition of one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libone.a(libone.rust_out.o): definition of rust_eh_personality
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# The linker extracts `libtwo.rust_out.o` to satisfy the reference to `two`
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libtwo.a(libtwo.rust_out.o): definition of two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# `libtwo.rust_out.o` also defines `rust_eh_personality`, which is already
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# defined by `libone.rust_out.o` from earlier! Multiple definitions.
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libtwo.a(libtwo.rust_out.o): multiple definition of `rust_eh_personality&amp;#39;; libone.a(libone.rust_out.o): first defined here
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Ok, but then why does it work when we disable LTO? Let&amp;rsquo;s see if the linker
+trace explains it:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ sh repro.sh 2&amp;gt;&amp;amp;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; | cut -d &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39; &amp;#39;&lt;/span&gt; -f2-
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&amp;lt;snip&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;my.o: reference to two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libone.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libone.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: definition of one
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;libtwo.a&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;: definition of two
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Success!&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;No extracted objects define &lt;code&gt;rust_eh_personality&lt;/code&gt;, so there is no conflict!&lt;/p&gt;
+&lt;p&gt;Under LTO, because of the way Rust chooses to split the staticlib into objects,
+&lt;code&gt;rust_eh_personality&lt;/code&gt; comes along for the ride when linking against &lt;code&gt;one()&lt;/code&gt;
+and/or &lt;code&gt;two()&lt;/code&gt;. This is a &lt;em&gt;leak of implementation detail&lt;/em&gt;. It&amp;rsquo;s reasonable to
+expect &lt;code&gt;one&lt;/code&gt; and only &lt;code&gt;one&lt;/code&gt; to be available in &lt;code&gt;libone.a&lt;/code&gt;, because that&amp;rsquo;s all
+we wrote in the source, but that&amp;rsquo;s not what we get. &lt;code&gt;rust_eh_personality&lt;/code&gt; is
+part of the Rust&amp;rsquo;s standard library (&amp;ldquo;stdlib&amp;rdquo; here on out). In fact, &lt;code&gt;libone.a&lt;/code&gt;
+defines many more symbols:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ nm --just-symbols --defined-only --extern-only libone.a | wc -l
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;846&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;That&amp;rsquo;s a large interface for a one-line library!&lt;/p&gt;
+&lt;h2 id=&#34;ld--r-also-known-as-partial-linking&#34;&gt;&lt;code&gt;ld -r&lt;/code&gt;, also known as &amp;ldquo;partial linking&amp;rdquo;&lt;/h2&gt;
+&lt;p&gt;To avoid potential conflicts, our goal is to trim the output of the &lt;code&gt;nm&lt;/code&gt;
+invocation above. Ideally, it would just have a single line that says &lt;code&gt;one&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;In our simple example, &lt;code&gt;one()&lt;/code&gt; and &lt;code&gt;two()&lt;/code&gt; don&amp;rsquo;t use Rust standard library
+functions, so the objects that define them in the archive don&amp;rsquo;t need to refer
+to other archive member objects. When we start using standard library functions
+like YJIT, we have a bit of a dilemma. With ELF and Mach-O, as far as I know,
+there is no way make a symbol available solely to other members of the archive;
+if it&amp;rsquo;s defined and &amp;ldquo;extern&amp;rdquo; (more about this later), it&amp;rsquo;s available to objects
+inside and outside of the archive.&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; To satisfy our stdlib functions usages,
+Rust can choose to put precompiled objects in the archive, but in doing so,
+those symbols also become part of the external interface of the staticlib!&lt;/p&gt;
+&lt;p&gt;If you believe this limitation of the object code format, you can see why using
+&lt;code&gt;strip(1)&lt;/code&gt; on the archive directly doesn&amp;rsquo;t quite work. If we strip away symbols
+that we use but do not intend to make available externally, internal references
+within the archive break.&lt;/p&gt;
+&lt;p&gt;So to trim the list of available symbols, having multiple objects in the
+archive is a bit of a problem. It&amp;rsquo;d be nice if we can deal with just one
+object file. That wouldn&amp;rsquo;t directly solve the problem, but it&amp;rsquo;d help. Luckily, there
+is a kind of program that combines multiple object files into one file &amp;mdash; the
+linker!&lt;/p&gt;
+&lt;p&gt;It&amp;rsquo;s common to use the linker to combine multiple object files into a shared
+library or an executable. A lesser-known operation is merging multiple object
+files into one object file. It&amp;rsquo;s not a feature that all the linkers have, but
+it&amp;rsquo;s supported by the GNU linker, Xcode&amp;rsquo;s linker (ld64), and &lt;a href=&#34;https://github.com/illumos/illumos-gate/blob/8b0ccc49c4d0c1ac61668d047d9e8f14ca9ff6f3/usr/src/man/man1/ld.1#L653-L663&#34;&gt;illumos&#39;
+linker&lt;/a&gt;.
+Linux uses this functionality to build kernel modules; the Glasgow Haskell Compiler
+apparently also &lt;a href=&#34;https://github.com/rui314/mold/issues/289#issue-1110017351&#34;&gt;uses it&lt;/a&gt;.
+On Linux platforms that use &lt;a href=&#34;https://www.gnu.org/software/binutils/&#34;&gt;GNU Binutils&lt;/a&gt;, it
+should work pretty well.&lt;/p&gt;
+&lt;p&gt;The macOS manual page for &lt;code&gt;strip(1)&lt;/code&gt; actually
+&lt;a href=&#34;https://github.com/opensource-apple/cctools/blob/fdb4825f303fd5c0751be524babd32958181b3ed/man/strip.1#L117-L129&#34;&gt;mentions&lt;/a&gt;
+using &lt;code&gt;ld -r&lt;/code&gt; and &lt;code&gt;strip&lt;/code&gt; to trim the symbol list down to an intended list &amp;mdash;
+&lt;code&gt;ld -r&lt;/code&gt; seems to be the right path!&lt;/p&gt;
+&lt;p&gt;CRuby already happens to have a configuration that uses &lt;code&gt;ld -r&lt;/code&gt;. It&amp;rsquo;s for the
+original flavor of DTrace first shipped in Solaris, nowadays more easily
+accessible through &lt;a href=&#34;https://www.illumos.org/&#34;&gt;illumos&lt;/a&gt;. There is a &lt;a href=&#34;https://github.com/ruby/ruby/blob/31819e82c88c6f8ecfaeb162519bfa26a14b21fd/template/Makefile.in#L510-L512&#34;&gt;link&lt;/a&gt; in the
+Makefile to a 2005 &lt;a href=&#34;https://marc.info/?l=opensolaris-dtrace-discuss&amp;amp;m=114761203210735&amp;amp;w=4&#34;&gt;mailing list conversation&lt;/a&gt; between Bryan
+Cantrill and Rich Lowe that explains why this setup was necessary. It&amp;rsquo;s awesome
+that &lt;a href=&#34;https://marc.info&#34;&gt;marc.info&lt;/a&gt; kept a record of that conversation! To
+overly simplify, collapsing the whole archive into one object file works around
+the linker not naturally extracting archive members important to DTrace.
+Remember the selective extraction behavior mentioned &lt;a href=&#34;#earlier&#34;&gt;earlier&lt;/a&gt;? As a
+side note, while evaluating &lt;code&gt;ld -r&lt;/code&gt; as an option for Rust integration, I ran
+into an illumos &lt;a href=&#34;https://www.illumos.org/issues/14722&#34;&gt;linker bug&lt;/a&gt; when trying
+to build Ruby without any Rust. Rich, from that mailing list conversation,
+responded to my report and fixed the bug quickly. I felt like I was directly
+interacting with computing history during that experience. Thanks, Rich!&lt;/p&gt;
+&lt;p&gt;Being able to work with a single object file instead of an archive also eases
+some unrelated integration pain for YJIT. As a component of Ruby, YJIT needs to
+fit into &lt;code&gt;libruby-static.a&lt;/code&gt; &amp;mdash; it&amp;rsquo;s not a separate library. To do this, we
+used to
+&lt;a href=&#34;https://github.com/ruby/ruby/blob/v3_2_1/template/Makefile.in#L322-L330&#34;&gt;merge&lt;/a&gt;
+&lt;code&gt;libyjit.a&lt;/code&gt; into &lt;code&gt;libruby-static.a&lt;/code&gt;&lt;sup id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;2&lt;/a&gt;&lt;/sup&gt;. This was a
+build process complication specific to YJIT. On the other hand, the build
+system already links many object files for C. Adding yet another object file to
+the mix is a smaller, better rehearsed change.&lt;/p&gt;
+&lt;p&gt;Great, &lt;code&gt;ld -r&lt;/code&gt; makes a self-contained &lt;code&gt;libyjit.o&lt;/code&gt; out of the &lt;code&gt;libyjit.a&lt;/code&gt; output
+from Rust. Can we get Rust to output &lt;code&gt;libyjit.o&lt;/code&gt; directly instead of getting it
+from a partial link? There is &lt;code&gt;--emit=obj&lt;/code&gt;, but it&amp;rsquo;s intended for debugging
+Rust itself. The output object from that option has references to Rust internal
+libraries, so to link successfully we&amp;rsquo;d need to figure out a list of things to
+pass to the linker, which themselves can end up leaking symbols. Also, upstream
+&lt;a href=&#34;https://github.com/mesonbuild/meson/pull/11213#issuecomment-1366541458&#34;&gt;seems to not want you to rely on it as a stable interface&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;shared-libraries-and--fvisibilityhidden&#34;&gt;Shared libraries and &lt;code&gt;-fvisibility=hidden&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;I&amp;rsquo;ve been avoiding the verb &amp;ldquo;export&amp;rdquo; for describing the act of making some
+symbol available for linking. This is because at the object file format and the
+static library format level, there is not really a direct encoding for whether
+a symbol is exported or not. When building a shared object, it&amp;rsquo;s a bit more
+clear. Mach-O dylibs encode all symbol exports in a &lt;a href=&#34;https://en.wikipedia.org/wiki/Trie&#34;&gt;trie&lt;/a&gt;; &lt;code&gt;objdump --exports-trie&lt;/code&gt; lets you inspect it. Simple. For ELF shared libraries, the
+definition for an &amp;ldquo;exported symbol&amp;rdquo; is &lt;a href=&#34;http://www.m4b.io/elf/export/binary/analysis/2015/05/25/what-is-an-elf-export.html&#34;&gt;a bit more complicated&lt;/a&gt;.
+Hmm, maybe avoiding the word wasn&amp;rsquo;t a great idea.&lt;/p&gt;
+&lt;p&gt;Anyways, we also want to curate the exported symbols list when building a
+shared library. Instead of build-time errors, shared library symbol conflicts
+can show up as &lt;em&gt;runtime crashes&lt;/em&gt;. That sounds worse.&lt;/p&gt;
+&lt;p&gt;A way do this with ELF and Mach-O is through symbol attributes. There is
+&amp;ldquo;hidden&amp;rdquo; on ELF, and &amp;ldquo;private external&amp;rdquo; on Mach-O. With C
+code, using &lt;code&gt;gcc&lt;/code&gt; or &lt;code&gt;clang&lt;/code&gt;, a way to make these symbols is through the
+&lt;code&gt;-fvisibility=hidden&lt;/code&gt; option, so I&amp;rsquo;ll refer to these as &amp;ldquo;hidden symbols&amp;rdquo; from
+here on out. In the final link that produces the shared object file, hidden
+symbols are not exported. The idea with &lt;code&gt;-fvisibility=hidden&lt;/code&gt; is that it makes
+all symbols hidden by default, which then allows you select the few symbols you
+wish to export by marking them as not hidden. It&amp;rsquo;s an allowlist setup rather
+than a blocklist one &amp;mdash; great for intentional curation.&lt;/p&gt;
+&lt;p&gt;Whether a symbol is hidden is a separate attribute from whether it is &lt;code&gt;extern&lt;/code&gt;,
+short for &amp;ldquo;external&amp;rdquo;. From what we saw earlier, duplicate external symbols
+cause conflicts when linking statically. Does making an external symbol hidden
+solve the conflict? Let&amp;rsquo;s try:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# This is hidden-and-extern.sh.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# We were with ELF earlier, let&amp;#39;s switch to Mach-O now.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Run in an empty directory.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;CC&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;clang
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;CFLAGS&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;-fvisibility=hidden -x c -std=c99 -c&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o errexit
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o nounset
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;set -o xtrace
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# First definition of h_and_e()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;printf &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%s&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;extern void h_and_e(void) {}&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    | $CC $CFLAGS -o h1.o -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Second definition of h_and_e()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;printf &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%s&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;extern void h_and_e(void) { __builtin_trap(); }&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    | $CC $CFLAGS -o h2.o -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Show symbol attributes for both definitions&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# (this assumes you have a recent Xcode toolchain, which ships llvm-nm)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;nm -f darwin h1.o h2.o | grep h_and_e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Try linking to make a shared library&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$CC -shared -o libmy.dylib h1.o h2.o
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;No, hidden external symbols conflict too:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ sh hidden-and-extern.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ printf %s &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;extern void h_and_e(void) {}&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ clang -fvisibility&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;hidden -x c -std&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;c99 -c -o h1.o -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ printf %s &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;extern void h_and_e(void) { __builtin_trap(); }&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ clang -fvisibility&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;hidden -x c -std&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;c99 -c -o h2.o -
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ nm -f darwin h1.o h2.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ grep h_and_e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0000000000000000&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;__TEXT,__text&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; private external _h_and_e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0000000000000000&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;__TEXT,__text&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; private external _h_and_e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+ clang -shared -o libmy.dylib h1.o h2.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;duplicate symbol &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;_h_and_e&amp;#39;&lt;/span&gt; in:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    h1.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    h2.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ld: &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; duplicate symbol &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; architecture arm64
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;clang: error: linker command failed with exit code &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;use -v to see invocation&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;On Mach-O, these &lt;code&gt;private external&lt;/code&gt; symbols have both the &lt;a href=&#34;https://github.com/apple/darwin-xnu/blob/8f02f2a044b9bb1ad951987ef5bab20ec9486310/EXTERNAL_HEADERS/mach-o/nlist.h#L118&#34;&gt;&lt;code&gt;N_PEXT&lt;/code&gt;&lt;/a&gt; and the
+&lt;code&gt;N_EXT&lt;/code&gt; bit set &amp;mdash; they are separate attributes. Because &lt;code&gt;N_PEXT&lt;/code&gt; sounds like
+&amp;ldquo;private external&amp;rdquo;, you may wonder what it means for a symbol to have &lt;code&gt;N_PEXT&lt;/code&gt;
+set, but &lt;code&gt;N_EXT&lt;/code&gt; clear. Those symbols are in fact non-external, &lt;code&gt;N_PEXT&lt;/code&gt;
+&lt;a href=&#34;https://github.com/llvm/llvm-project/blob/86cbf3d5f8a208e1129b4d75383ef792f1d8a4aa/llvm/tools/llvm-nm/llvm-nm.cpp#L486-L507&#34;&gt;tracks&lt;/a&gt; what the symbol once was:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;int main(void) {}&amp;#39;&lt;/span&gt; | cc -fvisibility&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;hidden -x c -std&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;c99 - | nm -f darwin a.out | grep main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;0000000100003fb0 &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;__TEXT,__text&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; non-external &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;was a private external&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; _main
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Non-external symbols (&lt;code&gt;N_EXT&lt;/code&gt; bit is clear) in the input to the final link are
+naturally not exported. This makes sense considering the semantics of the
+language features that produce these symbols. Think &lt;code&gt;static&lt;/code&gt; functions in C and
+private functions in Rust. These symbols also don&amp;rsquo;t cause link-time conflicts
+when linking statically.&lt;/p&gt;
+&lt;p&gt;Rust 1.67.1 doesn&amp;rsquo;t provide a language feature for making hidden symbols. Also,
+most external symbols defined by stdlib inside Rust&amp;rsquo;s staticlib output are not
+hidden. On Darwin, you can run &lt;code&gt;echo | rustc --crate-type=staticlib - &amp;amp;&amp;amp; nm -f darwin --defined-only --extern-only --no-llvm-bc librust_out.a | less&lt;/code&gt;
+to see.
+There are some &lt;code&gt;private external&lt;/code&gt; symbols from &lt;code&gt;compiler-builtins&lt;/code&gt;, a Rust
+internal crate, but they are &lt;a href=&#34;https://github.com/rust-lang/compiler-builtins/blob/5511f3087255236680eefb862458ed2f90e11bb5/build.rs#L179&#34;&gt;built from C code using
+&lt;code&gt;-fvisibility=hidden&lt;/code&gt;&lt;/a&gt;!
+This &lt;code&gt;-fvisibility=hidden&lt;/code&gt; option wasn&amp;rsquo;t available since day one; the first GCC
+version to have it was 4.0.0, first released in 2005. Maybe Rust will gain a
+similar capability in the future. &lt;sup id=&#34;fnref:3&#34;&gt;&lt;a href=&#34;#fn:3&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&#34;fnref:4&#34;&gt;&lt;a href=&#34;#fn:4&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;CRuby used to support GCC 3, which doesn&amp;rsquo;t have &lt;code&gt;-fvisibility=hidden&lt;/code&gt;. To
+remove undesired exports, CRuby used &lt;a href=&#34;https://sourceware.org/binutils/docs-2.40/binutils/objcopy.html&#34;&gt;&lt;code&gt;objcopy(1)&lt;/code&gt;&lt;/a&gt; to
+&lt;a href=&#34;https://github.com/ruby/ruby/commit/a2a53430330e8d010a479c6e85e9f2cf178efdf0&#34;&gt;post-process&lt;/a&gt; the &lt;code&gt;libruby.so&lt;/code&gt; shared object after the final
+link.&lt;/p&gt;
+&lt;p&gt;Maybe we can use &lt;code&gt;objcopy&lt;/code&gt; to process &lt;code&gt;libyjit.o&lt;/code&gt; too. Sure enough, there is
+&lt;code&gt;--keep-global-symbol&lt;/code&gt;, which instructs it to turn all but the global symbols
+named by the option to be &lt;em&gt;not&lt;/em&gt; global!&lt;sup id=&#34;fnref:5&#34;&gt;&lt;a href=&#34;#fn:5&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;5&lt;/a&gt;&lt;/sup&gt; For our purpose of dodging symbol
+conflicts, &amp;ldquo;globalness&amp;rdquo; in ELF is equivalent to &amp;ldquo;externalness&amp;rdquo; in Mach-O.&lt;/p&gt;
+&lt;p&gt;The invocation ends up being basically &lt;code&gt;objcopy --wildcard --keep-global-symbol=&#39;rb_*&#39; libyjit.o&lt;/code&gt; since we already prefix all the symbols
+we want to make available with &lt;code&gt;rb_&lt;/code&gt;. This pretty much completes curation for
+both Ruby configurations. For the static library configuration, the &lt;em&gt;hundreds&lt;/em&gt;
+of symbols Rust stdlib defines are turned non-external, leaving just a handful
+of &lt;code&gt;rb_*&lt;/code&gt; symbols we intend to make available.
+For the shared library configuration, we also don&amp;rsquo;t end up exporting Rust
+stdlib symbols. The &lt;code&gt;rb_&lt;/code&gt; symbols we define in &lt;code&gt;libyjit.o&lt;/code&gt; &lt;em&gt;are&lt;/em&gt; exported because
+they are not hidden, but that&amp;rsquo;s acceptable. They&amp;rsquo;re prefixed with &lt;code&gt;rb_&lt;/code&gt; like
+the rest of Ruby symbols and don&amp;rsquo;t show in Ruby&amp;rsquo;s public headers. We&amp;rsquo;ve shrunk
+the surface for conflicts by a lot.&lt;/p&gt;
+&lt;h2 id=&#34;curating-symbols-on-macos-without-objcopy&#34;&gt;Curating symbols on macOS without &lt;code&gt;objcopy&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;As a part of GNU Binutils, &lt;code&gt;objcopy&lt;/code&gt; is quite ubiquitous. It&amp;rsquo;s not part of
+Xcode Command Line Tools on macOS, though. There is no first party prebuilt
+binaries for CRuby, so users build from source all the time. To not place yet
+another tool installation burden on users, it&amp;rsquo;d be nice if we could curate
+symbols without relying on &lt;code&gt;objcopy&lt;/code&gt;. I&amp;rsquo;m already asking people to install Rust
+if they want YJIT.&lt;/p&gt;
+&lt;p&gt;This is where I went combing through ld64&amp;rsquo;s manual for anything relevant. There
+is &lt;code&gt;-exported_symbol&lt;/code&gt;, which seems very similar to &lt;code&gt;objcopy&lt;/code&gt;&amp;rsquo;s
+&lt;code&gt;--keep-global-symbol&lt;/code&gt;, it even takes wildcards. Using a wildcard doesn&amp;rsquo;t quite
+work, though. It also modifies undefined symbols that &lt;code&gt;libyjit.a&lt;/code&gt; references
+which are defined in the C part of the codebase. When doing the final link,
+each of these symbols it produces effective act as an assertion that there
+exists an export with the same name. We use a lot of internal functions from
+&lt;code&gt;libyjit.a&lt;/code&gt; that are not exported. That won&amp;rsquo;t fly.&lt;/p&gt;
+&lt;p&gt;I also tried a bunch of other option combinations. I should&amp;rsquo;ve taken better
+notes as to what I tried, but nothing seemed to work. &lt;code&gt;nobu&lt;/code&gt;, a longtime CRuby
+maintainer, had &lt;a href=&#34;https://bugs.ruby-lang.org/issues/19255#note-1&#34;&gt;posted his
+take&lt;/a&gt; on the problem on the bug
+tracker, but it didn&amp;rsquo;t pass macOS CI.&lt;/p&gt;
+&lt;p&gt;Thankfully, &lt;code&gt;nobu&lt;/code&gt;&amp;rsquo;s take put me on the right direction. There were just a few
+wrinkles to iron out.&lt;/p&gt;
+&lt;h3 id=&#34;combine-and-curate-all-in-one-go&#34;&gt;Combine and curate, all in one go&lt;/h3&gt;
+&lt;p&gt;With &lt;code&gt;-exported_symbol &#39;_rb_*&#39;&lt;/code&gt;, ld64 touches too many symbols. We only want to
+manipulate defined symbols, a subset of what it selects. This is possible with
+&lt;code&gt;-exported_symbols_list&lt;/code&gt;. The manual talks about how global symbols &lt;em&gt;not&lt;/em&gt; in
+the list are turned &lt;code&gt;private external&lt;/code&gt;, which sounds not quite enough &amp;mdash; we
+saw how these symbols can still conflict earlier.&lt;/p&gt;
+&lt;p&gt;But, &lt;code&gt;ld -r&lt;/code&gt; turns &lt;code&gt;private external&lt;/code&gt; symbols into conflict-free non-external
+symbols! This feature is documented under the
+&lt;a href=&#34;https://github.com/apple-opensource/ld64/blob/e28c028b20af187a16a7161d89e91868a450cadc/doc/man/man1/ld.1#L406-L410&#34;&gt;&lt;code&gt;-keep_private_externs&lt;/code&gt;&lt;/a&gt; section in the manual.&lt;/p&gt;
+&lt;p&gt;The order of operations also works out in our favor. So, symbols not in the list
+are turned &lt;code&gt;private external&lt;/code&gt;, and then turned non-external. The exported
+symbols list also helps ld64 extract the right archive members. One &lt;code&gt;ld -r -exported_symbols_list&lt;/code&gt; call gives everything we want. Slick!&lt;/p&gt;
+&lt;h3 id=&#34;xcodes-nm-is-llvm-nm&#34;&gt;Xcode&amp;rsquo;s &lt;code&gt;nm&lt;/code&gt; is &lt;code&gt;llvm-nm&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;What list of symbols do we give to &lt;code&gt;-exported_symbols_list&lt;/code&gt;? For YJIT, the list
+is small enough that we could maintain it by hand, but then sometimes we&amp;rsquo;d need
+to repeat ourselves when adding new Rust functions. &lt;code&gt;nobu&lt;/code&gt;&amp;rsquo;s branch filters the
+output of &lt;code&gt;nm --defined-only --extern-only&lt;/code&gt; to generate the list. But that
+errors out on CI:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;nm: error:
+yjit/target/release/libyjit.a(std-1a5555b33819f218.std.0c61b6a2-cgu.0.rcgu.o):
+Opaque pointers are only supported in -opaque-pointers mode (Producer:
+&amp;lsquo;LLVM15.0.2-rust-1.66.0-stable&amp;rsquo; Reader: &amp;lsquo;LLVM APPLE_1_1400.0.29.102_0&amp;rsquo;)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Opaque pointer? I hardly know her! Well, I did vaguely recall that opaque
+pointers are an LLVM thing. The manual for &lt;code&gt;nm(1)&lt;/code&gt; mentions that it is actually
+&lt;code&gt;llvm-nm&lt;/code&gt; nowadays, and &lt;code&gt;llvm-nm&lt;/code&gt; by default decodes the LLVM bitcode bundled
+within the object file. Rust&amp;rsquo;s LLVM is newer than Apple&amp;rsquo;s, and Rust&amp;rsquo;s bitcode
+is using a construct from the future.&lt;/p&gt;
+&lt;p&gt;We&amp;rsquo;re not doing fancy cross-language LTO here and only care about the machine
+code in the object files, so we just need to pass &lt;code&gt;--no-llvm-bc&lt;/code&gt;.&lt;/p&gt;
+&lt;h3 id=&#34;the-return-of-rust_eh_personality&#34;&gt;The return of &lt;code&gt;rust_eh_personality&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;Great, we can hide all the symbols we want. Let&amp;rsquo;s try linking &lt;code&gt;libyjit.o&lt;/code&gt; with
+everything else&amp;hellip;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;linking miniruby
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Undefined symbols for architecture arm64:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &amp;#34;_rust_eh_personality&amp;#34;, referenced from:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      ___rust_try in libyjit.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      ___rust_drop_panic in libyjit.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      ___rust_foreign_exception in libyjit.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      ...
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ld: symbol(s) not found for architecture arm64
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Excuse me? It&amp;rsquo;s defined, and right there in the symbol table:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ nm --no-llvm-bc --defined-only --format darwin yjit/target/debug/libyjit.o | grep rust_eh_personality
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0000000000368534&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;__TEXT,__text&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; non-external &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;was a private external&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; _rust_eh_personality
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;This seems to be an ld64 bug. LLVM&amp;rsquo;s linker, &lt;a href=&#34;https://lld.llvm.org/&#34;&gt;LLD&lt;/a&gt;, links it just fine. Is the
+bug in &lt;code&gt;ld -r&lt;/code&gt;? Well, I can recreate the error without any &lt;code&gt;ld -r&lt;/code&gt; involvement:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-asm&#34; data-lang=&#34;asm&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;; This is test.s
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;; ld64 fails to link unless the following line is uncommented:
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;; .private_extern _my_personality
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;; lld version 15 links successfully either way.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.align&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;_my_personality:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;ret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.global&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;_fun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.align&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;_fun:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;.cfi_startproc&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;; 0x9b = DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;.cfi_personality&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0x9b&lt;/span&gt;, &lt;span style=&#34;color:#66d9ef&#34;&gt;_my_personality&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;ret&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;.cfi_endproc&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ as test.s -o test.o &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; clang -shared test.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Undefined symbols &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; architecture arm64:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;_my_personality&amp;#34;&lt;/span&gt;, referenced from:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      _fun in test.o
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ld: symbol&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;s&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; not found &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; architecture arm64
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;I guess ld64 has special treatment for personality function references encoded
+in &lt;a href=&#34;https://faultlore.com/blah/compact-unwinding/&#34;&gt;compact unwind&lt;/a&gt;. Just a guess. Apple hasn&amp;rsquo;t responded and for almost 2
+years now, &lt;a href=&#34;https://opensource.apple.com/source/ld64/&#34;&gt;hasn&amp;rsquo;t released ld64&amp;rsquo;s source code&lt;/a&gt;. I&amp;rsquo;m
+discouraged to dig any deeper. &lt;a href=&#34;https://lld.llvm.org/&#34;&gt;LLD&lt;/a&gt; does not have support for &lt;code&gt;ld -r&lt;/code&gt; for
+Mach-O yet, but the error says to &amp;ldquo;stay tuned&amp;rdquo;. Rust ships with LLD
+already so I&amp;rsquo;m looking forward to when LLD adds support.&lt;/p&gt;
+&lt;p&gt;It feels like &lt;code&gt;rust_eh_personality&lt;/code&gt; always turn up in &lt;a href=&#34;https://github.com/rust-lang/rust/issues/102754&#34;&gt;weird linkage issues&lt;/a&gt;.
+Fine, we&amp;rsquo;ll compromise and leave it exported for now. We hide all other
+Rust stdlib symbols, though. Still a nice improvement.&lt;/p&gt;
+&lt;h2 id=&#34;closing&#34;&gt;Closing&lt;/h2&gt;
+&lt;p&gt;It&amp;rsquo;s a bit rough plugging a small piece of Rust into a larger C codebase,
+y&amp;rsquo;all. There are discussions&lt;sup id=&#34;fnref:6&#34;&gt;&lt;a href=&#34;#fn:6&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;6&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&#34;fnref:7&#34;&gt;&lt;a href=&#34;#fn:7&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;7&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&#34;fnref:8&#34;&gt;&lt;a href=&#34;#fn:8&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;8&lt;/a&gt;&lt;/sup&gt; upstream about improving various
+aspects of the experience. Perhaps there is some opportunities for
+contribution.&lt;/p&gt;
+&lt;p&gt;With respect to symbol leakage, I focused a lot on the problems in this post.
+In practice, it may not be a high priority problem. The latest YJIT release
+includes none of the mitigations discussed, and so far, we haven&amp;rsquo;t received
+reports of related build issues.&lt;/p&gt;
+&lt;p&gt;I remember benefiting from &lt;a href=&#34;https://viruta.org/tag/librsvg.html&#34;&gt;posts&lt;/a&gt; about
+&lt;code&gt;librsvg&lt;/code&gt;&amp;rsquo;s Rust and C integration when I first started looking into using Rust
+for YJIT. I figure some might find what we do in YJIT  interesting. It was fun
+sorting through all the pieces involved to make this post.&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
+&lt;hr&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;
+&lt;p&gt;You may know about ELF&amp;rsquo;s &lt;code&gt;STV_PROTECTED&lt;/code&gt; visibility. It doesn&amp;rsquo;t do what
+I described.&amp;#160;&lt;a href=&#34;#fnref:1&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:2&#34;&gt;
+&lt;p&gt;As a parallel, staticlib crates can statically
+link against native libraries, so Rust itself sometimes merges archives.&amp;#160;&lt;a href=&#34;#fnref:2&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:3&#34;&gt;
+&lt;p&gt;Using hidden symbols is not the only avenue for avoiding undesired symbol
+exports. For Mach-O, ld64 provides the &lt;code&gt;-load_hidden&lt;/code&gt; option to link against
+an archive without also exporting non-private external symbols in it. For
+ELF, GNU ld provides &lt;code&gt;--exclude-libs&lt;/code&gt; for this purpose. These options are
+worth considering when linking against Rust staticlibs to produce a shared
+library. They don&amp;rsquo;t help when making a static library, though.&amp;#160;&lt;a href=&#34;#fnref:3&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:4&#34;&gt;
+&lt;p&gt;For &lt;code&gt;cdylib&lt;/code&gt; crates, where Rust does the final link (not the case in
+YJIT), Rust started to trim exports starting in 1.62.0 thanks to
+&lt;a href=&#34;https://github.com/rust-lang/rust/pull/95604&#34;&gt;&lt;code&gt;rust-lang/rust#95604&lt;/code&gt;&lt;/a&gt;! On
+macOS, you can see this by comparing &lt;code&gt;printf &#39;%s&#39; &#39;#[no_mangle] pub extern &amp;quot;C&amp;quot; fn foo() {}&#39; | rustc +1.61.0 --crate-type=cdylib - &amp;amp;&amp;amp; dyld_info -exports librust_out.dylib&lt;/code&gt;
+with a &lt;code&gt;+1.62.0&lt;/code&gt; invocation.&amp;#160;&lt;a href=&#34;#fnref:4&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:5&#34;&gt;
+&lt;p&gt;Of course, &amp;ldquo;local symbols&amp;rdquo; are not the opposite of global symbols&amp;hellip;&amp;#160;&lt;a href=&#34;#fnref:5&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:6&#34;&gt;
+&lt;p&gt;&lt;a href=&#34;https://internals.rust-lang.org/t/pre-rfc-stabilize-a-version-of-the-rlib-format/17558&#34;&gt;Pre-RFC: Stabilize a version of the &lt;code&gt;rlib&lt;/code&gt; format&lt;/a&gt;&amp;#160;&lt;a href=&#34;#fnref:6&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:7&#34;&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/rust-lang/rust/issues/104707&#34;&gt;Don&amp;rsquo;t leak non-exported symbols from staticlibs&lt;/a&gt;&amp;#160;&lt;a href=&#34;#fnref:7&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li id=&#34;fn:8&#34;&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/rust-lang/rust/issues/73632&#34;&gt;Formal support for linking rlibs using a non-Rust linker&lt;/a&gt;&amp;#160;&lt;a href=&#34;#fnref:8&#34; class=&#34;footnote-backref&#34; role=&#34;doc-backlink&#34;&gt;&amp;#x21a9;&amp;#xfe0e;&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+</description>
+    </item>
     
     <item>
       <title>How I think about C99 strict aliasing rules</title>
@@ -108,9 +589,9 @@ this:&lt;/p&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    st_table &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;ics;
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (rb_id_table_lookup(constant_cache, id, (VALUE &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ics)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;rb_id_table_lookup&lt;/span&gt;(constant_cache, id, (VALUE &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&lt;/span&gt;ics)) {
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// successful lookup
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        st_foreach(ics, iterator_fn, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        &lt;span style=&#34;color:#a6e22e&#34;&gt;st_foreach&lt;/span&gt;(ics, iterator_fn, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;);
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;When &lt;code&gt;rb_id_table_lookup()&lt;/code&gt; returns 1, it indicates that it has written through &lt;code&gt;valp&lt;/code&gt;:&lt;/p&gt;
