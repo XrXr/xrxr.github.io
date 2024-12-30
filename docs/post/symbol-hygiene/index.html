@@ -39,20 +39,22 @@
 
 
 
-<meta property="og:title" content="Linking Rust and C: Practicing Symbol Hygiene" />
-<meta property="og:description" content="This is a post about the bits and pieces I learned while trying to fix a symbol leakage problem for YJIT-enabled Ruby. The symbols I&rsquo;m talking about are the labels in object, executable, and shared library files that help linkers work.
-Thinking back to my first few contacts with linkers, I found them somewhat mysterious. I think this is because I get errors from compilers more frequently than from linkers." />
-<meta property="og:type" content="article" />
-<meta property="og:url" content="https://alanwu.space/post/symbol-hygiene/" /><meta property="article:section" content="post" />
-<meta property="article:published_time" content="2023-02-14T16:08:02+00:00" />
-<meta property="article:modified_time" content="2023-02-14T16:08:02+00:00" />
-
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="Linking Rust and C: Practicing Symbol Hygiene"/>
-<meta name="twitter:description" content="This is a post about the bits and pieces I learned while trying to fix a symbol leakage problem for YJIT-enabled Ruby. The symbols I&rsquo;m talking about are the labels in object, executable, and shared library files that help linkers work.
-Thinking back to my first few contacts with linkers, I found them somewhat mysterious. I think this is because I get errors from compilers more frequently than from linkers."/>
+<meta property="og:url" content="https://alanwu.space/post/symbol-hygiene/">
+  <meta property="og:site_name" content="Thoughts from Alan">
+  <meta property="og:title" content="Linking Rust and C: Practicing Symbol Hygiene">
+  <meta property="og:description" content="This is a post about the bits and pieces I learned while trying to fix a symbol leakage problem for YJIT-enabled Ruby. The symbols I’m talking about are the labels in object, executable, and shared library files that help linkers work.
+Thinking back to my first few contacts with linkers, I found them somewhat mysterious. I think this is because I get errors from compilers more frequently than from linkers. Also, compared to compilers, linkers are generally in a worse vantage point for giving context-rich error messages that use familiar programming language level terms.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="post">
+    <meta property="article:published_time" content="2023-02-14T16:08:02+00:00">
+    <meta property="article:modified_time" content="2023-02-14T16:08:02+00:00">
 
 
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Linking Rust and C: Practicing Symbol Hygiene">
+  <meta name="twitter:description" content="This is a post about the bits and pieces I learned while trying to fix a symbol leakage problem for YJIT-enabled Ruby. The symbols I’m talking about are the labels in object, executable, and shared library files that help linkers work.
+Thinking back to my first few contacts with linkers, I found them somewhat mysterious. I think this is because I get errors from compilers more frequently than from linkers. Also, compared to compilers, linkers are generally in a worse vantage point for giving context-rich error messages that use familiar programming language level terms.">
 
 
 
@@ -580,8 +582,6 @@ with a <code>+1.62.0</code> invocation.&#160;<a href="#fnref:4" class="footnote-
 </div>
 
     </article>
-
-    
 
     
 

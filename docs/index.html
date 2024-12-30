@@ -4,7 +4,7 @@
 
 <html lang="en-us" data-theme="">
 <head>
-	<meta name="generator" content="Hugo 0.110.0">
+	<meta name="generator" content="Hugo 0.140.1">
     
         
 <meta charset="utf-8">
@@ -41,16 +41,15 @@
 
 
 
-<meta property="og:title" content="Thoughts from Alan" />
-<meta property="og:description" content="" />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://alanwu.space/" />
-
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="Thoughts from Alan"/>
-<meta name="twitter:description" content=""/>
+<meta property="og:url" content="https://alanwu.space/">
+  <meta property="og:site_name" content="Thoughts from Alan">
+  <meta property="og:title" content="Thoughts from Alan">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
 
 
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Thoughts from Alan">
 
 
 
@@ -88,12 +87,61 @@
         
             <article class="post-list h-feed">
     <header class="post-header">
+        <h1 class="p-name post-title"><a class="u-url" href="/post/betting-on-linux/">Betting on Linux</a></h1>
+    </header>
+
+    <div class="content post-summary p-summary">
+        <p>Recently, I took a distribution version update for a Ubuntu system with a GTX
+460 and I ended up spending a few hours to find out that the proprietary driver
+no longer works with the newest kernels. The open source <code>nouveau</code> driver
+didn&rsquo;t handle the decade old card any better. I had to downgrade to an older
+LTS kernel and use Nvidia&rsquo;s driver.</p>
+<p>A different machine of mine running Raven Ridge integrated graphics recently
+also started to have issues. It freezes and dumps scary red text about <code>amdgpu</code>
+to the kernel ring buffer. This reminds me of when I first bought the machine
+in 2018, when Raven Ridge was new and the drivers for it nascent. It eventually
+stabilized, but now the crashes are back.</p>
+    </div>
+    
+    
+    
+
+
+<div class="post-info">
+    
+        <div class="post-date dt-published">2024-12-29</div>
+    
+    
+    <a class="post-hidden-url u-url" href="https://alanwu.space/post/betting-on-linux/">https://alanwu.space/post/betting-on-linux/</a>
+    <div class="post-hidden-author p-author"></div>
+
+    <div class="post-taxonomies">
+        
+            
+    </div>
+</div>
+
+</article>
+        
+            <article class="post-list h-feed">
+    <header class="post-header">
         <h1 class="p-name post-title"><a class="u-url" href="/post/symbol-hygiene/">Linking Rust and C: Practicing Symbol Hygiene</a></h1>
     </header>
 
     <div class="content post-summary p-summary">
-        This is a post about the bits and pieces I learned while trying to fix a symbol leakage problem for YJIT-enabled Ruby. The symbols I&rsquo;m talking about are the labels in object, executable, and shared library files that help linkers work.
-Thinking back to my first few contacts with linkers, I found them somewhat mysterious. I think this is because I get errors from compilers more frequently than from linkers.
+        <style>
+code:not([data-lang]) { white-space: nowrap; }
+</style>
+
+
+<p>This is a post about the bits and pieces I learned while trying to fix a symbol
+leakage problem for YJIT-enabled Ruby. The symbols I&rsquo;m talking about are the
+labels in object, executable, and shared library files that help linkers work.</p>
+<p>Thinking back to my first few contacts with linkers, I found them somewhat
+mysterious. I think this is because I get errors from compilers more frequently
+than from linkers. Also, compared to compilers, linkers are generally in a
+worse vantage point for giving context-rich error messages that use familiar
+programming language level terms.</p>
     </div>
     
     
@@ -122,8 +170,16 @@ Thinking back to my first few contacts with linkers, I found them somewhat myste
     </header>
 
     <div class="content post-summary p-summary">
-        Recently I was asked how I review C99 code for problems that arise from failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to answer, so I thought I would write a post to hopefully make my explanation more coherent.
-The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are &ldquo;just numbers&rdquo;. Ultimately, I think there are practical benefits to understanding the rules even if you disagree with them.
+        <p>Recently I was asked how I review C99 code for problems that arise from
+failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to
+answer, so I thought I would write a post to hopefully make my explanation more
+coherent.</p>
+<p>The strict aliasing rules can be surprising because the way optimizers take
+advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are
+&ldquo;just numbers&rdquo;. Ultimately, I think there are practical benefits to
+understanding the rules even if you disagree with them. Popular compilers such
+as GCC and Clang take advantage of the rules so knowing them can help with
+debugging if for nothing else.</p>
     </div>
     
     
@@ -181,8 +237,9 @@ The strict aliasing rules can be surprising because the way optimizers take adva
     </header>
 
     <div class="content post-summary p-summary">
-        This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with GC.compact. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.
-Using automated tests to surface crashes If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite.
+        <p>This guide intends to help Ruby native extension maintainers upgrade libraries to be compatible with <code>GC.compact</code>. Application developers can also use this guide to check applications for compaction compatibility. At the time of writing, the latest Ruby release is version 3.0.0.</p>
+<h3 id="using-automated-tests-to-surface-crashes">Using automated tests to surface crashes</h3>
+<p>If your test suite runs under Ruby 2.7.0 or newer, it is possible to check for compaction crashes with a small addition to your test suite.</p>
     </div>
     
     
@@ -211,8 +268,16 @@ Using automated tests to surface crashes If your test suite runs under Ruby 2.7.
     </header>
 
     <div class="content post-summary p-summary">
-        I have a K-Type, which is a programmable keyboard that lets me configure custom hotkeys. The configurations live with and on the keyboard, which is neat. Among other things, this lets my configuration work across different operating systems.
-My current configuration has several navigation hotkeys that activate with the CAPSLOCK key. CAPSLOCK+{j,k,l,;} send arrow keys, in a way similar to Vim&rsquo;s default normal mode bindings. CAPSLOCK+{i,n} gives page up and down, while CAPSLOCK+{h,quote} sends HOME and END.
+        <p>I have a <a href="https://kono.store/products/k-type-mechanical-keyboard">K-Type</a>, which is a programmable keyboard that lets me
+configure custom hotkeys. The configurations live with and on the keyboard,
+which is neat. Among other things, this lets my configuration work across
+different operating systems.</p>
+<p>My current configuration has several navigation hotkeys that activate with the
+<code>CAPSLOCK</code> key. <code>CAPSLOCK+{j,k,l,;}</code> send arrow keys, in a way similar to Vim&rsquo;s
+default normal mode bindings. <code>CAPSLOCK+{i,n}</code> gives page up and down, while
+<code>CAPSLOCK+{h,quote}</code> sends <code>HOME</code> and <code>END</code>. This hotkey cluster lets me scroll
+and move cursors without having to take my right hand away from the home row
+(index finger on <code>j</code>).</p>
     </div>
     
     
@@ -241,8 +306,13 @@ My current configuration has several navigation hotkeys that activate with the C
     </header>
 
     <div class="content post-summary p-summary">
-        The first commit I made for my compiler was in 2016, it read &ldquo;Here&rsquo;s hoping I get this done in time&rdquo;. I&rsquo;m not sure if I met the deadline that message was referring to, but the compiler is certainly &ldquo;done&rdquo; now.
-Of course, no one in the right mind would use the compiler for anything serious, but the compiler compiles code, and I&rsquo;ve made a simple graphical app launcher using it.
+        <p>The first commit I made for my compiler was in 2016, it read &ldquo;Here&rsquo;s hoping I get this done in time&rdquo;.
+I&rsquo;m not sure if I met the deadline that message was referring to, but the compiler is certainly &ldquo;done&rdquo; now.</p>
+<p>Of course, no one in the right mind would use the compiler for anything serious, but the <a href="https://www.github.com/XrXr/alang">compiler</a> compiles code,
+and I&rsquo;ve made a simple graphical <a href="https://www.github.com/XrXr/souvenir">app launcher</a> using it.</p>
+<p>I mostly want to talk about the human aspects of this project. I find a lot of technical stuff in the project interesting
+too, but as somebody who is very much a novice at building compilers, I don&rsquo;t think I bring much to the
+table talking about compiler construction.</p>
     </div>
     
     

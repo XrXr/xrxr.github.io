@@ -39,20 +39,22 @@
 
 
 
-<meta property="og:title" content="How I think about C99 strict aliasing rules" />
-<meta property="og:description" content="Recently I was asked how I review C99 code for problems that arise from failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to answer, so I thought I would write a post to hopefully make my explanation more coherent.
-The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are &ldquo;just numbers&rdquo;. Ultimately, I think there are practical benefits to understanding the rules even if you disagree with them." />
-<meta property="og:type" content="article" />
-<meta property="og:url" content="https://alanwu.space/post/strict-aliasing/" /><meta property="article:section" content="post" />
-<meta property="article:published_time" content="2022-05-23T22:31:37-04:00" />
-<meta property="article:modified_time" content="2022-05-23T22:31:37-04:00" />
-
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="How I think about C99 strict aliasing rules"/>
-<meta name="twitter:description" content="Recently I was asked how I review C99 code for problems that arise from failing to follow the so called &ldquo;strict aliasing rules&rdquo;. I struggled to answer, so I thought I would write a post to hopefully make my explanation more coherent.
-The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn&rsquo;t mesh well with the popular belief that pointers are &ldquo;just numbers&rdquo;. Ultimately, I think there are practical benefits to understanding the rules even if you disagree with them."/>
+<meta property="og:url" content="https://alanwu.space/post/strict-aliasing/">
+  <meta property="og:site_name" content="Thoughts from Alan">
+  <meta property="og:title" content="How I think about C99 strict aliasing rules">
+  <meta property="og:description" content="Recently I was asked how I review C99 code for problems that arise from failing to follow the so called “strict aliasing rules”. I struggled to answer, so I thought I would write a post to hopefully make my explanation more coherent.
+The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn’t mesh well with the popular belief that pointers are “just numbers”. Ultimately, I think there are practical benefits to understanding the rules even if you disagree with them. Popular compilers such as GCC and Clang take advantage of the rules so knowing them can help with debugging if for nothing else.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="post">
+    <meta property="article:published_time" content="2022-05-23T22:31:37-04:00">
+    <meta property="article:modified_time" content="2022-05-23T22:31:37-04:00">
 
 
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="How I think about C99 strict aliasing rules">
+  <meta name="twitter:description" content="Recently I was asked how I review C99 code for problems that arise from failing to follow the so called “strict aliasing rules”. I struggled to answer, so I thought I would write a post to hopefully make my explanation more coherent.
+The strict aliasing rules can be surprising because the way optimizers take advantage of them doesn’t mesh well with the popular belief that pointers are “just numbers”. Ultimately, I think there are practical benefits to understanding the rules even if you disagree with them. Popular compilers such as GCC and Clang take advantage of the rules so knowing them can help with debugging if for nothing else.">
 
 
 
@@ -252,8 +254,6 @@ where it can reason about the two functions in separate translation units togeth
 </div>
 
     </article>
-
-    
 
     
 

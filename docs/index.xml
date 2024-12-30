@@ -6,10 +6,38 @@
     <description>Thoughts from Alan</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 14 Feb 2023 16:08:02 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 29 Dec 2024 22:08:00 -0500</lastBuildDate>
     
     <atom:link href="https://alanwu.space/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Betting on Linux</title>
+      <link>https://alanwu.space/post/betting-on-linux/</link>
+      <pubDate>Sun, 29 Dec 2024 22:08:00 -0500</pubDate>
+      
+      <guid>https://alanwu.space/post/betting-on-linux/</guid>
+      <description>&lt;p&gt;Recently, I took a distribution version update for a Ubuntu system with a GTX
+460 and I ended up spending a few hours to find out that the proprietary driver
+no longer works with the newest kernels. The open source &lt;code&gt;nouveau&lt;/code&gt; driver
+didn&amp;rsquo;t handle the decade old card any better. I had to downgrade to an older
+LTS kernel and use Nvidia&amp;rsquo;s driver.&lt;/p&gt;
+&lt;p&gt;A different machine of mine running Raven Ridge integrated graphics recently
+also started to have issues. It freezes and dumps scary red text about &lt;code&gt;amdgpu&lt;/code&gt;
+to the kernel ring buffer. This reminds me of when I first bought the machine
+in 2018, when Raven Ridge was new and the drivers for it nascent. It eventually
+stabilized, but now the crashes are back.&lt;/p&gt;
+&lt;p&gt;Despite all the woes, I&amp;rsquo;m getting the Pine64 Note, an eReader running mainline
+Linux. I&amp;rsquo;ll probably have problems with it. The userland is new, and maybe the
+graphics drivers will flake out on me, but I&amp;rsquo;m going with it anyways.&lt;/p&gt;
+&lt;p&gt;This is an aspirational purchase. I want to read more. Glance away from the
+ultraprocessed flashing lights designed to monetize my attention. Also,
+diagnosing these issues doesn&amp;rsquo;t seem like the worst hobby. To borrow from the
+chapter about sunsets in &lt;em&gt;The Anthropocene Reviewed&lt;/em&gt;, &amp;ldquo;I want to be earnest,
+even if it&amp;rsquo;s embarrassing.&amp;rdquo; I want to get out of my armor of cynicism and be
+vulnerable.&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Linking Rust and C: Practicing Symbol Hygiene</title>
