@@ -132,8 +132,7 @@ setup. What happens?</p>
 <blockquote>
 <p>lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality'
 &hellip;</p>
-<p>collect2: error: ld returned 1 exit status</p>
-</blockquote>
+<p>collect2: error: ld returned 1 exit status</p></blockquote>
 <p>Oof. Not fun. Who&rsquo;s <code>collect2</code> and what&rsquo;s <code>rust_eh_personality</code> anyways? Maybe
 you decide to disable YJIT because it&rsquo;s the new thing that causes build
 problems for you. YJIT loses a user.</p>
@@ -452,8 +451,7 @@ errors out on CI:</p>
 <p>nm: error:
 yjit/target/release/libyjit.a(std-1a5555b33819f218.std.0c61b6a2-cgu.0.rcgu.o):
 Opaque pointers are only supported in -opaque-pointers mode (Producer:
-&lsquo;LLVM15.0.2-rust-1.66.0-stable&rsquo; Reader: &lsquo;LLVM APPLE_1_1400.0.29.102_0&rsquo;)</p>
-</blockquote>
+&lsquo;LLVM15.0.2-rust-1.66.0-stable&rsquo; Reader: &lsquo;LLVM APPLE_1_1400.0.29.102_0&rsquo;)</p></blockquote>
 <p>Opaque pointer? I hardly know her! Well, I did vaguely recall that opaque
 pointers are an LLVM thing. The manual for <code>nm(1)</code> mentions that it is actually
 <code>llvm-nm</code> nowadays, and <code>llvm-nm</code> by default decodes the LLVM bitcode bundled

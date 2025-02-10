@@ -1405,8 +1405,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 <h2 id="possible-ways-to-prevent-this-in-the-future">Possible ways to prevent this in the future</h2>
 <p>To quote Koichi Sasada in a <a href="https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf">paper</a> about CRuby&rsquo;s write barriers:</p>
 <blockquote>
-<p>In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.</p>
-</blockquote>
+<p>In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.</p></blockquote>
 <p>Indeed, write barrier bugs can be very elusive. I certainly don&rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with <code>GC</code> in the reproducer &ndash; a lot of the time the program doesn&rsquo;t crash and appears to work correctly.</p>
 <p>I&rsquo;m going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.</p>
 <h3 id="education-and-code-reviews">Education and code reviews</h3>

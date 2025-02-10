@@ -87,8 +87,7 @@ setup. What happens?&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality&#39;
 &amp;hellip;&lt;/p&gt;
-&lt;p&gt;collect2: error: ld returned 1 exit status&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;collect2: error: ld returned 1 exit status&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;Oof. Not fun. Who&amp;rsquo;s &lt;code&gt;collect2&lt;/code&gt; and what&amp;rsquo;s &lt;code&gt;rust_eh_personality&lt;/code&gt; anyways? Maybe
 you decide to disable YJIT because it&amp;rsquo;s the new thing that causes build
 problems for you. YJIT loses a user.&lt;/p&gt;
@@ -407,8 +406,7 @@ errors out on CI:&lt;/p&gt;
 &lt;p&gt;nm: error:
 yjit/target/release/libyjit.a(std-1a5555b33819f218.std.0c61b6a2-cgu.0.rcgu.o):
 Opaque pointers are only supported in -opaque-pointers mode (Producer:
-&amp;lsquo;LLVM15.0.2-rust-1.66.0-stable&amp;rsquo; Reader: &amp;lsquo;LLVM APPLE_1_1400.0.29.102_0&amp;rsquo;)&lt;/p&gt;
-&lt;/blockquote&gt;
+&amp;lsquo;LLVM15.0.2-rust-1.66.0-stable&amp;rsquo; Reader: &amp;lsquo;LLVM APPLE_1_1400.0.29.102_0&amp;rsquo;)&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;Opaque pointer? I hardly know her! Well, I did vaguely recall that opaque
 pointers are an LLVM thing. The manual for &lt;code&gt;nm(1)&lt;/code&gt; mentions that it is actually
 &lt;code&gt;llvm-nm&lt;/code&gt; nowadays, and &lt;code&gt;llvm-nm&lt;/code&gt; by default decodes the LLVM bitcode bundled
@@ -590,8 +588,7 @@ about &lt;code&gt;-fno-strict-aliasing&lt;/code&gt;, perhaps because many people
 by this optimization:&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;To disable optimizations based on alias-analysis for faulty legacy code, the
-option &lt;code&gt;-fno-strict-aliasing&lt;/code&gt; can be used as a work-around.&lt;/p&gt;
-&lt;/blockquote&gt;
+option &lt;code&gt;-fno-strict-aliasing&lt;/code&gt; can be used as a work-around.&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;Oof. Okay GCC, type-based alias analysis is great and useful, but no need to judge this hard.&lt;/p&gt;
 &lt;h1 id=&#34;snap-back-to-reality&#34;&gt;Snap back to reality&lt;/h1&gt;
 &lt;p&gt;Let&amp;rsquo;s go look at a practical example in CRuby where we did not follow the
@@ -1996,8 +1993,7 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 &lt;h2 id=&#34;possible-ways-to-prevent-this-in-the-future&#34;&gt;Possible ways to prevent this in the future&lt;/h2&gt;
 &lt;p&gt;To quote Koichi Sasada in a &lt;a href=&#34;https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf&#34;&gt;paper&lt;/a&gt; about CRuby&amp;rsquo;s write barriers:&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;Indeed, write barrier bugs can be very elusive. I certainly don&amp;rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with &lt;code&gt;GC&lt;/code&gt; in the reproducer &amp;ndash; a lot of the time the program doesn&amp;rsquo;t crash and appears to work correctly.&lt;/p&gt;
 &lt;p&gt;I&amp;rsquo;m going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.&lt;/p&gt;
 &lt;h3 id=&#34;education-and-code-reviews&#34;&gt;Education and code reviews&lt;/h3&gt;
