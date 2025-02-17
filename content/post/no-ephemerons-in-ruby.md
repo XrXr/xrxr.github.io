@@ -1,6 +1,6 @@
 ---
 title: "No Ephemerons in Ruby's WeakMap"
-date: 2025-02-09T21:30:00-05:00
+date: 2025-02-17T00:30:00-05:00
 ---
 
 Let's say you want to associate a property with an object, but you don't want
@@ -9,8 +9,6 @@ to write to the object directly, maybe for design reasons or logistical reasons
 and the garbage collector is free to collect keys of the map:
 
 ```ruby
-require "objspace"
-
 object = []
 map = ObjectSpace::WeakMap.new
 map[object] = [object]
@@ -20,11 +18,9 @@ p map.member?(object) # => true
 
 There is an issue with this demo, however. Currently, Ruby's `WeakMap`
 doesn't keep the values of the map alive, so the map evicts the pair in the
-demo after a garbage collection run:
+demo after a garbage collection run, even though the key survives:
 
 ```ruby
-require "objspace"
-
 object = []
 map = ObjectSpace::WeakMap.new
 map[object] = [object]

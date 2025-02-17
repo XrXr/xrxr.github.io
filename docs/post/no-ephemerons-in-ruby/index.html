@@ -43,18 +43,18 @@
   <meta property="og:site_name" content="Thoughts from Alan">
   <meta property="og:title" content="No Ephemerons in Ruby&#39;s WeakMap">
   <meta property="og:description" content="Let’s say you want to associate a property with an object, but you don’t want to write to the object directly, maybe for design reasons or logistical reasons (what if the object is frozen and immutable?) You can use WeakMap for this, and the garbage collector is free to collect keys of the map:
-require &#34;objspace&#34; object = [] map = ObjectSpace::WeakMap.new map[object] = [object] p map.member?(object) # =&gt; true There is an issue with this demo, however. Currently, Ruby’s WeakMap doesn’t keep the values of the map alive, so the map evicts the pair in the demo after a garbage collection run:">
+object = [] map = ObjectSpace::WeakMap.new map[object] = [object] p map.member?(object) # =&gt; true There is an issue with this demo, however. Currently, Ruby’s WeakMap doesn’t keep the values of the map alive, so the map evicts the pair in the demo after a garbage collection run, even though the key survives:">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="post">
-    <meta property="article:published_time" content="2025-02-09T21:30:00-05:00">
-    <meta property="article:modified_time" content="2025-02-09T21:30:00-05:00">
+    <meta property="article:published_time" content="2025-02-17T00:30:00-05:00">
+    <meta property="article:modified_time" content="2025-02-17T00:30:00-05:00">
 
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="No Ephemerons in Ruby&#39;s WeakMap">
   <meta name="twitter:description" content="Let’s say you want to associate a property with an object, but you don’t want to write to the object directly, maybe for design reasons or logistical reasons (what if the object is frozen and immutable?) You can use WeakMap for this, and the garbage collector is free to collect keys of the map:
-require &#34;objspace&#34; object = [] map = ObjectSpace::WeakMap.new map[object] = [object] p map.member?(object) # =&gt; true There is an issue with this demo, however. Currently, Ruby’s WeakMap doesn’t keep the values of the map alive, so the map evicts the pair in the demo after a garbage collection run:">
+object = [] map = ObjectSpace::WeakMap.new map[object] = [object] p map.member?(object) # =&gt; true There is an issue with this demo, however. Currently, Ruby’s WeakMap doesn’t keep the values of the map alive, so the map evicts the pair in the demo after a garbage collection run, even though the key survives:">
 
 
 
@@ -94,19 +94,15 @@ require &#34;objspace&#34; object = [] map = ObjectSpace::WeakMap.new map[object
 to write to the object directly, maybe for design reasons or logistical reasons
 (what if the object is frozen and immutable?) You can use <code>WeakMap</code> for this,
 and the garbage collector is free to collect keys of the map:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>require <span style="color:#e6db74">&#34;objspace&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
 </span></span><span style="display:flex;"><span>map <span style="color:#f92672">=</span> <span style="color:#66d9ef">ObjectSpace</span><span style="color:#f92672">::</span><span style="color:#66d9ef">WeakMap</span><span style="color:#f92672">.</span>new
 </span></span><span style="display:flex;"><span>map<span style="color:#f92672">[</span>object<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#f92672">[</span>object<span style="color:#f92672">]</span>
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span>p map<span style="color:#f92672">.</span>member?(object) <span style="color:#75715e"># =&gt; true</span>
 </span></span></code></pre></div><p>There is an issue with this demo, however. Currently, Ruby&rsquo;s <code>WeakMap</code>
 doesn&rsquo;t keep the values of the map alive, so the map evicts the pair in the
-demo after a garbage collection run:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>require <span style="color:#e6db74">&#34;objspace&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
+demo after a garbage collection run, even though the key survives:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
 </span></span><span style="display:flex;"><span>map <span style="color:#f92672">=</span> <span style="color:#66d9ef">ObjectSpace</span><span style="color:#f92672">::</span><span style="color:#66d9ef">WeakMap</span><span style="color:#f92672">.</span>new
 </span></span><span style="display:flex;"><span>map<span style="color:#f92672">[</span>object<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#f92672">[</span>object<span style="color:#f92672">]</span>
 </span></span><span style="display:flex;"><span>
@@ -149,7 +145,7 @@ tracing under a different mode.</p>
 
 <div class="post-info">
     
-        <div class="post-date dt-published">2025-02-09</div>
+        <div class="post-date dt-published">2025-02-17</div>
     
     
     <a class="post-hidden-url u-url" href="https://alanwu.space/post/no-ephemerons-in-ruby/">https://alanwu.space/post/no-ephemerons-in-ruby/</a>
