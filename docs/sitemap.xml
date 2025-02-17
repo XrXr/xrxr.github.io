@@ -2,13 +2,16 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://alanwu.space/post/betting-on-linux/</loc>
-    <lastmod>2024-12-29T22:08:00-05:00</lastmod>
+    <loc>https://alanwu.space/post/no-ephemerons-in-ruby/</loc>
+    <lastmod>2025-02-09T21:30:00-05:00</lastmod>
   </url><url>
     <loc>https://alanwu.space/post/</loc>
-    <lastmod>2024-12-29T22:08:00-05:00</lastmod>
+    <lastmod>2025-02-09T21:30:00-05:00</lastmod>
   </url><url>
     <loc>https://alanwu.space/</loc>
+    <lastmod>2025-02-09T21:30:00-05:00</lastmod>
+  </url><url>
+    <loc>https://alanwu.space/post/betting-on-linux/</loc>
     <lastmod>2024-12-29T22:08:00-05:00</lastmod>
   </url><url>
     <loc>https://alanwu.space/post/symbol-hygiene/</loc>
