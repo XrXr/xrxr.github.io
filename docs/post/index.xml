@@ -18,8 +18,8 @@
       
       <guid>https://alanwu.space/post/no-ephemerons-in-ruby/</guid>
       <description>&lt;p&gt;Let&amp;rsquo;s say you want to associate a property with an object, but you don&amp;rsquo;t want
-to write to the object directly, maybe for design reasons or logistical reasons
-(what if the object is frozen and immutable?) You can use &lt;code&gt;WeakMap&lt;/code&gt; for this,
+to write to the object directly, maybe for design reasons or logistical reasons.
+(What if the object is frozen and immutable?) You can use &lt;code&gt;WeakMap&lt;/code&gt; for this,
 and the garbage collector is free to collect keys of the map:&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-ruby&#34; data-lang=&#34;ruby&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;object &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;[]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;map &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;ObjectSpace&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;::&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WeakMap&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;new

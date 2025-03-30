@@ -4,8 +4,8 @@ date: 2025-02-17T00:30:00-05:00
 ---
 
 Let's say you want to associate a property with an object, but you don't want
-to write to the object directly, maybe for design reasons or logistical reasons
-(what if the object is frozen and immutable?) You can use `WeakMap` for this,
+to write to the object directly, maybe for design reasons or logistical reasons.
+(What if the object is frozen and immutable?) You can use `WeakMap` for this,
 and the garbage collector is free to collect keys of the map:
 
 ```ruby
