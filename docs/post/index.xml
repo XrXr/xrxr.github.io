@@ -6,10 +6,130 @@
     <description>Thoughts from Alan (Posts)</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 17 Feb 2025 00:30:00 -0500</lastBuildDate>
+    <lastBuildDate>Tue, 16 Sep 2025 00:00:01 -0400</lastBuildDate>
     
     <atom:link href="https://alanwu.space/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>ARM64&#39;s MOVN instruction is clever</title>
+      <link>https://alanwu.space/post/arm64-movn/</link>
+      <pubDate>Tue, 16 Sep 2025 00:00:01 -0400</pubDate>
+      
+      <guid>https://alanwu.space/post/arm64-movn/</guid>
+      <description> &lt;style&gt; article { text-align: justify; } &lt;/style&gt; 
+
+&lt;p&gt;The bit twiddling office called. They want a function to computes a sequence of
+ARM64 instructions that fills a register with an arbitrary constant 64-bit
+number.&lt;/p&gt;
+&lt;h2 id=&#34;zeros-in-positive-number&#34;&gt;Zeros in positive number&lt;/h2&gt;
+&lt;p&gt;All ARM64 instructions are 32 bits long, so one instruction can&amp;rsquo;t possibly
+handle all 64-bit patterns. One straightforward way to assemble the desired bit
+pattern is to use
+&lt;a href=&#34;https://developer.arm.com/documentation/ddi0602/2025-06/Base-Instructions/MOVK--Move-wide-with-keep-?lang=en&#34;&gt;&lt;code&gt;MOVK&lt;/code&gt;&lt;/a&gt;
+which sets any one of the four 16-bit chunks of the register without touching
+any other chunks. So, four &lt;code&gt;MOVK&lt;/code&gt; instructions can assemble any 64-bit pattern.&lt;/p&gt;
+&lt;p&gt;Adding &lt;code&gt;MOVZ&lt;/code&gt; to the mix improves this strategy. Small numbers have many zeros
+in the pattern, so we&amp;rsquo;d rather start by zeroing the register rather than
+zeroing out 16-bit chunks at a time with &lt;code&gt;MOVK&lt;/code&gt;. In one go, &lt;code&gt;MOVZ&lt;/code&gt; sets one
+16-bit chunk to the desired value and also zeros out all other chunks. For
+small numbers like 7, all we need is one &lt;code&gt;MOVZ&lt;/code&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;the-negative-ones&#34;&gt;The negative ones&lt;/h2&gt;
+&lt;p&gt;Another instruction in the same family is
+&lt;a href=&#34;https://developer.arm.com/documentation/ddi0602/2025-06/Base-Instructions/MOVN--Move-wide-with-NOT-?lang=en&#34;&gt;&lt;code&gt;MOVN&lt;/code&gt;&lt;/a&gt;.
+It sets the register like &lt;code&gt;MOVZ&lt;/code&gt;, but with all bits inverted. So, &lt;code&gt;MOVN&lt;/code&gt; sets
+the three chunks that are not directly encoded in the instruction to all ones.
+Why would you want so many ones? Negative numbers!&lt;/p&gt;
+&lt;p&gt;The most significant bit of a two&amp;rsquo;s complement number contributes negatively to
+the value tally unlike the rest of the bits. Adding a leading one to the bit
+string makes the old most significant bit at position K go from having a value
+of -2&lt;sup&gt;K&lt;/sup&gt; to 2&lt;sup&gt;K&lt;/sup&gt;, adding
+2•2&lt;sup&gt;K&lt;/sup&gt;=2&lt;sup&gt;K+1&lt;/sup&gt; to the balance. The new leading one at K+1 has
+value -2&lt;sup&gt;K+1&lt;/sup&gt;
+, though, so adding a leading one preserves
+the numeric value of the encoded number. This is one way to see why -1 is
+encoded as all bits ones. Start with a single one and add leading ones.&lt;/p&gt;
+&lt;p&gt;When the sign bit is set, clear bits for to get away from zero.&lt;/p&gt;
+&lt;h2 id=&#34;strategy-using-movn&#34;&gt;Strategy using &lt;code&gt;MOVN&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;Using &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt; gives a pretty good strategy for negative numbers.
+Sometimes, the instruction sequence takes fewer than 64-bits!&lt;/p&gt;
+&lt;p&gt;When setting a register to a constant &lt;code&gt;N&lt;/code&gt;, pick a 16-bit block in &lt;code&gt;N&lt;/code&gt; that is
+not all bits set, and use a &lt;code&gt;MOVN&lt;/code&gt; to set that block, which also sets all bits
+outside the block to one. If no such block exists, then &lt;code&gt;N&lt;/code&gt; has all bits set,
+and a single &lt;code&gt;MOVN&lt;/code&gt; is enough. Otherwise, set other blocks of &lt;code&gt;N&lt;/code&gt; with &lt;code&gt;MOVK&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;If there is even a single 16-bit block of ones in &lt;code&gt;N&lt;/code&gt;, the initial &lt;code&gt;MOVN&lt;/code&gt;
+finishes setting two blocks or more in one go, beating out only using &lt;code&gt;MOVK&lt;/code&gt;.
+&lt;code&gt;MOVZ&lt;/code&gt; covers positive numbers and &lt;code&gt;MOVN&lt;/code&gt; covers the negatives.&lt;/p&gt;
+&lt;p&gt;This strategy is not limited to negative numbers, though. For example,
+&lt;code&gt;0x7000_ffff_cafe_ffff&lt;/code&gt; can be set efficiently with two instructions.&lt;/p&gt;
+&lt;h2 id=&#34;play-with-it&#34;&gt;Play with it!&lt;/h2&gt;
+&lt;p&gt;On a browser with WASM support, there should be an interactive toy below that
+implements the &lt;code&gt;MOVN&lt;/code&gt; strategy. It only uses &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt;, so
+don&amp;rsquo;t expect the shortest possible sequence for all inputs. (For one, it won&amp;rsquo;t attempt to use
+a &lt;a href=&#34;https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/&#34;&gt;bitmask
+immediate&lt;/a&gt;.)
+It&amp;rsquo;s made with &lt;a href=&#34;https://github.com/capstone-rust/capstone-rs&#34;&gt;&lt;code&gt;capstone-rs&lt;/code&gt;&lt;/a&gt;
+compiled through
+&lt;a href=&#34;https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html&#34;&gt;&lt;code&gt;wasm32-unknown-emscripten&lt;/code&gt;&lt;/a&gt;.
+Please excuse the huge 3MB download size &amp;ndash; I made no effort minimizing it.&lt;/p&gt;
+
+&lt;input type=&#34;text&#34; id=&#34;constantInput&#34; value=&#34;0x7000_ffff_cafe_ffff&#34;&gt;&lt;/input&gt;
+&lt;br&gt;
+&lt;pre id=disasmOutput style=&#34;height: 4lh;&#34;&gt;&lt;/pre&gt;
+&lt;script&gt;
+    Module = {
+        noExitRuntime: true,
+        onRuntimeInitialized() {
+            // XXX: Synced with RUST
+            const DISASM_TEXT_SIZE = 0x400
+
+            // Smoke test inputs:
+            // * the unsigned and signed representation of boundary values 
+            // * 0
+            // * -0x8000_0000_0000_0000, 0x8000_0000_0000_0000
+            // * -1, 0xffff_ffff_ffff_ffff
+            // * Just-out-of-range values
+
+            constantInput.addEventListener(&#34;input&#34;, event =&gt; {
+                disasmOutput.textContent = &#34;Failed to parse input as a number&#34;
+                let input = event.target.value
+                input = input.trim()
+                if (!input) return
+
+                // Support underscore separators
+                input = input.replace(/_/g, &#34;&#34;)
+
+                // BigInt doesn&#39;t support negative hex values like -0x8,
+                // so we hack it in here. Doesn&#39;t support 0b and 0o.
+                let neg_hex = input.match(/^-0x\p{Hex_Digit}+$/u)
+                if (neg_hex) input = input.substring(1)
+                try {
+                    n = BigInt(input)
+                } catch (_) {
+                    return // already shown error above.
+                }
+                if (neg_hex) n = -n
+
+                if (n &gt; 0xffff_ffff_ffff_ffffn || n &lt; -0x8000_0000_0000_0000n) {
+                    disasmOutput.textContent = &#34;Number is too big to encode in 64 bits&#34;
+                    return
+                }
+
+                let disasm = Module._malloc(DISASM_TEXT_SIZE)
+                Module.ccall(&#34;disasm&#34;, &#34;number&#34;, [&#34;number&#34;, &#34;number&#34;], [n, disasm])
+                let disasm_text = Module.UTF8ToString(disasm)
+                Module._free(disasm)
+                disasmOutput.textContent = disasm_text
+            })
+            constantInput.dispatchEvent(new InputEvent(&#34;input&#34;))
+        }
+    }
+&lt;/script&gt;
+&lt;script src=&#34;https://alanwu.space/arm64_movn.js&#34; defer&gt;&lt;/script&gt;
+
+
+</description>
+    </item>
     
     <item>
       <title>No Ephemerons in Ruby&#39;s WeakMap</title>

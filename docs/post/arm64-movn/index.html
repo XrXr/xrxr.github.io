@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+
+
+<html lang="en-us" data-theme="">
+<head>
+    
+        
+<meta charset="utf-8">
+<meta name="HandheldFriendly" content="True">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<title>ARM64&#39;s MOVN instruction is clever - Thoughts from Alan</title>
+<meta name="description" content="">
+
+<link rel="icon" type="image/png" href="https://alanwu.space/favicon.png">
+<link rel="apple-touch-icon-precomposed" href="https://alanwu.space/favicon.png">
+
+
+
+    
+
+
+
+
+
+    
+    
+    
+
+    
+        <link rel="stylesheet" href="https://alanwu.space/css/style.e5ec8e96139fb72189ec799ef6fa88ee336396e113a051759e0ec060eadb5ecf.css" integrity="sha256-5eyOlhOftyGJ7Hme9vqI7jNjluEToFF1ng7AYOrbXs8=">
+    
+
+
+
+
+
+
+
+<meta property="og:url" content="https://alanwu.space/post/arm64-movn/">
+  <meta property="og:site_name" content="Thoughts from Alan">
+  <meta property="og:title" content="ARM64&#39;s MOVN instruction is clever">
+  <meta property="og:description" content="The bit twiddling office called. They want a function to computes a sequence of ARM64 instructions that fills a register with an arbitrary constant 64-bit number.
+Zeros in positive number All ARM64 instructions are 32 bits long, so one instruction can’t possibly handle all 64-bit patterns. One straightforward way to assemble the desired bit pattern is to use MOVK which sets any one of the four 16-bit chunks of the register without touching any other chunks. So, four MOVK instructions can assemble any 64-bit pattern.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="post">
+    <meta property="article:published_time" content="2025-09-16T00:00:01-04:00">
+    <meta property="article:modified_time" content="2025-09-16T00:00:01-04:00">
+
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ARM64&#39;s MOVN instruction is clever">
+  <meta name="twitter:description" content="The bit twiddling office called. They want a function to computes a sequence of ARM64 instructions that fills a register with an arbitrary constant 64-bit number.
+Zeros in positive number All ARM64 instructions are 32 bits long, so one instruction can’t possibly handle all 64-bit patterns. One straightforward way to assemble the desired bit pattern is to use MOVK which sets any one of the four 16-bit chunks of the register without touching any other chunks. So, four MOVK instructions can assemble any 64-bit pattern.">
+
+
+
+
+
+
+
+
+
+    
+</head>
+<body>
+    <a class="skip-main" href="#main">Skip to main content</a>
+    <div class="container">
+        <header class="common-header"> 
+            
+                <h1 class="site-title">
+    <a href="/">Thoughts from Alan</a>
+</h1>
+
+    <nav></nav>
+
+
+
+            
+        </header>
+        <main id="main" tabindex="-1"> 
+            
+    
+    
+    <article class="post h-entry">
+        <header class="post-header">
+            <h1 class="p-name post-title">ARM64&#39;s MOVN instruction is clever</h1>
+        </header>
+        <div class="content e-content">
+             <style> article { text-align: justify; } </style> 
+
+<p>The bit twiddling office called. They want a function to computes a sequence of
+ARM64 instructions that fills a register with an arbitrary constant 64-bit
+number.</p>
+<h2 id="zeros-in-positive-number">Zeros in positive number</h2>
+<p>All ARM64 instructions are 32 bits long, so one instruction can&rsquo;t possibly
+handle all 64-bit patterns. One straightforward way to assemble the desired bit
+pattern is to use
+<a href="https://developer.arm.com/documentation/ddi0602/2025-06/Base-Instructions/MOVK--Move-wide-with-keep-?lang=en"><code>MOVK</code></a>
+which sets any one of the four 16-bit chunks of the register without touching
+any other chunks. So, four <code>MOVK</code> instructions can assemble any 64-bit pattern.</p>
+<p>Adding <code>MOVZ</code> to the mix improves this strategy. Small numbers have many zeros
+in the pattern, so we&rsquo;d rather start by zeroing the register rather than
+zeroing out 16-bit chunks at a time with <code>MOVK</code>. In one go, <code>MOVZ</code> sets one
+16-bit chunk to the desired value and also zeros out all other chunks. For
+small numbers like 7, all we need is one <code>MOVZ</code>.</p>
+<h2 id="the-negative-ones">The negative ones</h2>
+<p>Another instruction in the same family is
+<a href="https://developer.arm.com/documentation/ddi0602/2025-06/Base-Instructions/MOVN--Move-wide-with-NOT-?lang=en"><code>MOVN</code></a>.
+It sets the register like <code>MOVZ</code>, but with all bits inverted. So, <code>MOVN</code> sets
+the three chunks that are not directly encoded in the instruction to all ones.
+Why would you want so many ones? Negative numbers!</p>
+<p>The most significant bit of a two&rsquo;s complement number contributes negatively to
+the value tally unlike the rest of the bits. Adding a leading one to the bit
+string makes the old most significant bit at position K go from having a value
+of -2<sup>K</sup> to 2<sup>K</sup>, adding
+2•2<sup>K</sup>=2<sup>K+1</sup> to the balance. The new leading one at K+1 has
+value -2<sup>K+1</sup>
+, though, so adding a leading one preserves
+the numeric value of the encoded number. This is one way to see why -1 is
+encoded as all bits ones. Start with a single one and add leading ones.</p>
+<p>When the sign bit is set, clear bits for to get away from zero.</p>
+<h2 id="strategy-using-movn">Strategy using <code>MOVN</code></h2>
+<p>Using <code>MOVN</code> and <code>MOVK</code> gives a pretty good strategy for negative numbers.
+Sometimes, the instruction sequence takes fewer than 64-bits!</p>
+<p>When setting a register to a constant <code>N</code>, pick a 16-bit block in <code>N</code> that is
+not all bits set, and use a <code>MOVN</code> to set that block, which also sets all bits
+outside the block to one. If no such block exists, then <code>N</code> has all bits set,
+and a single <code>MOVN</code> is enough. Otherwise, set other blocks of <code>N</code> with <code>MOVK</code>.</p>
+<p>If there is even a single 16-bit block of ones in <code>N</code>, the initial <code>MOVN</code>
+finishes setting two blocks or more in one go, beating out only using <code>MOVK</code>.
+<code>MOVZ</code> covers positive numbers and <code>MOVN</code> covers the negatives.</p>
+<p>This strategy is not limited to negative numbers, though. For example,
+<code>0x7000_ffff_cafe_ffff</code> can be set efficiently with two instructions.</p>
+<h2 id="play-with-it">Play with it!</h2>
+<p>On a browser with WASM support, there should be an interactive toy below that
+implements the <code>MOVN</code> strategy. It only uses <code>MOVN</code> and <code>MOVK</code>, so
+don&rsquo;t expect the shortest possible sequence for all inputs. (For one, it won&rsquo;t attempt to use
+a <a href="https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/">bitmask
+immediate</a>.)
+It&rsquo;s made with <a href="https://github.com/capstone-rust/capstone-rs"><code>capstone-rs</code></a>
+compiled through
+<a href="https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html"><code>wasm32-unknown-emscripten</code></a>.
+Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.</p>
+
+<input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
+<br>
+<pre id=disasmOutput style="height: 4lh;"></pre>
+<script>
+    Module = {
+        noExitRuntime: true,
+        onRuntimeInitialized() {
+            // XXX: Synced with RUST
+            const DISASM_TEXT_SIZE = 0x400
+
+            // Smoke test inputs:
+            // * the unsigned and signed representation of boundary values 
+            // * 0
+            // * -0x8000_0000_0000_0000, 0x8000_0000_0000_0000
+            // * -1, 0xffff_ffff_ffff_ffff
+            // * Just-out-of-range values
+
+            constantInput.addEventListener("input", event => {
+                disasmOutput.textContent = "Failed to parse input as a number"
+                let input = event.target.value
+                input = input.trim()
+                if (!input) return
+
+                // Support underscore separators
+                input = input.replace(/_/g, "")
+
+                // BigInt doesn't support negative hex values like -0x8,
+                // so we hack it in here. Doesn't support 0b and 0o.
+                let neg_hex = input.match(/^-0x\p{Hex_Digit}+$/u)
+                if (neg_hex) input = input.substring(1)
+                try {
+                    n = BigInt(input)
+                } catch (_) {
+                    return // already shown error above.
+                }
+                if (neg_hex) n = -n
+
+                if (n > 0xffff_ffff_ffff_ffffn || n < -0x8000_0000_0000_0000n) {
+                    disasmOutput.textContent = "Number is too big to encode in 64 bits"
+                    return
+                }
+
+                let disasm = Module._malloc(DISASM_TEXT_SIZE)
+                Module.ccall("disasm", "number", ["number", "number"], [n, disasm])
+                let disasm_text = Module.UTF8ToString(disasm)
+                Module._free(disasm)
+                disasmOutput.textContent = disasm_text
+            })
+            constantInput.dispatchEvent(new InputEvent("input"))
+        }
+    }
+</script>
+<script src="/arm64_movn.js" defer></script>
+
+
+
+        </div>
+        
+
+
+<div class="post-info">
+    
+        <div class="post-date dt-published">2025-09-16</div>
+    
+    
+    <a class="post-hidden-url u-url" href="https://alanwu.space/post/arm64-movn/">https://alanwu.space/post/arm64-movn/</a>
+    <div class="post-hidden-author p-author"></div>
+
+    <div class="post-taxonomies">
+        
+            
+    </div>
+</div>
+
+    </article>
+
+    
+
+    
+
+
+        </main>
+        <footer class="common-footer"></footer>
+    </div>
+</body>
+</html>
