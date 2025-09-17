@@ -3,7 +3,7 @@ title: "ARM64's MOVN instruction is clever"
 date: 2025-09-16T00:00:01-04:00
 ---
 
-The bit twiddling office called. They want a function to computes a sequence of
+The bit twiddling office called. They want a function to compute a sequence of
 ARM64 instructions that fills a register with an arbitrary constant 64-bit
 number.
 
@@ -17,8 +17,8 @@ which sets any one of the four 16-bit chunks of the register without touching
 any other chunks. So, four `MOVK` instructions can assemble any 64-bit pattern.
 
 Adding `MOVZ` to the mix improves this strategy. Small numbers have many zeros
-in the pattern, so we'd rather start by zeroing the register rather than
-zeroing out 16-bit chunks at a time with `MOVK`. In one go, `MOVZ` sets one
+in the pattern, so we'd rather start by zeroing the whole register than
+zeroing out one 16-bit chunk at a time with `MOVK`. In one go, `MOVZ` sets one
 16-bit chunk to the desired value and also zeros out all other chunks. For
 small numbers like 7, all we need is one `MOVZ`.
 
