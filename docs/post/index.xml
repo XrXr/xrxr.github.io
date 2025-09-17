@@ -17,9 +17,7 @@
       <pubDate>Tue, 16 Sep 2025 00:00:01 -0400</pubDate>
       
       <guid>https://alanwu.space/post/arm64-movn/</guid>
-      <description> &lt;style&gt; article { text-align: justify; } &lt;/style&gt; 
-
-&lt;p&gt;The bit twiddling office called. They want a function to computes a sequence of
+      <description>&lt;p&gt;The bit twiddling office called. They want a function to computes a sequence of
 ARM64 instructions that fills a register with an arbitrary constant 64-bit
 number.&lt;/p&gt;
 &lt;h2 id=&#34;zeros-in-positive-number&#34;&gt;Zeros in positive number&lt;/h2&gt;

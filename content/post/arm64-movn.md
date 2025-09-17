@@ -3,8 +3,6 @@ title: "ARM64's MOVN instruction is clever"
 date: 2025-09-16T00:00:01-04:00
 ---
 
-{{<html>}} <style> article { text-align: justify; } </style> {{</html>}}
-
 The bit twiddling office called. They want a function to computes a sequence of
 ARM64 instructions that fills a register with an arbitrary constant 64-bit
 number.

@@ -6,3 +6,4 @@ publishDir = "docs"
 
 [params]
 style = "auto-without-switcher"
+customCSS = [ "css/my.css" ]

@@ -572,3 +572,6 @@ ul.language-select > li, ul.footer-menu > li {
         max-width: 10em;
     }
 }
+article {
+    text-align: justify;
+}
