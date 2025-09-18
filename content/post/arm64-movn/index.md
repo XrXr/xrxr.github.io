@@ -45,7 +45,7 @@ Leading ones are to negative numbers what leading zeros are to positive
 numbers. [^1]
 
 [^1]: It follows that [`n.leading_zeros() + n.leading_ones() + 1`](https://doc.rust-lang.org/std/primitive.u64.html#method.leading_zeros) gives the
-shortest number of bits a number takes to encode. One of the terms in the sum
+minimum number of bits it takes to encode `n`. One of the terms in the sum
 is always zero.
 
 ## Strategy using `MOVN`
