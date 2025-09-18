@@ -1,0 +1,3 @@
+code:not([data-lang]) {
+  white-space: nowrap;
+}
