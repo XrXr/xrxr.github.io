@@ -24,7 +24,18 @@
 
 
 
-<link rel="stylesheet" href="https://alanwu.space/css/bundle.bd103ef2da8b8d3f49c8ea44d91cf976fe9b045add2657d956bffa914999c8cf.css" integrity="sha256-vRA&#43;8tqLjT9JyOpE2Rz5dv6bBFrdJlfZVr/6kUmZyM8=">
+    
+
+    
+
+    
+
+
+
+
+
+
+<link rel="stylesheet" href="https://alanwu.space/e08bcf16a520229d.min.4dc0dc6a3d53abce170a48b3458d1ee067f93c012d86218a2a574937f74b712f.css" integrity="sha256-TcDcaj1Tq84XCkizRY0e4Gf5PAEthiGKKldJN/dLcS8=">
 
 
 
@@ -107,19 +118,21 @@ value -2<sup>K+1</sup>
 , though, so adding a leading one preserves
 the numeric value of the encoded number. This is one way to see why -1 is
 encoded as all bits ones. Start with a single one and add leading ones.</p>
-<p>When the sign bit is set, clear bits for to get away from zero.</p>
+<p>Leading ones are to negative numbers what leading zeros are to positive
+numbers. <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 <h2 id="strategy-using-movn">Strategy using <code>MOVN</code></h2>
 <p>Using <code>MOVN</code> and <code>MOVK</code> gives a pretty good strategy for negative numbers.
-Sometimes, the instruction sequence takes fewer than 64-bits!</p>
-<p>When setting a register to a constant <code>N</code>, pick a 16-bit block in <code>N</code> that is
-not all bits set, and use a <code>MOVN</code> to set that block, which also sets all bits
-outside the block to one. If no such block exists, then <code>N</code> has all bits set,
-and a single <code>MOVN</code> is enough. Otherwise, set other blocks of <code>N</code> with <code>MOVK</code>.</p>
-<p>If there is even a single 16-bit block of ones in <code>N</code>, the initial <code>MOVN</code>
-finishes setting two blocks or more in one go, beating out only using <code>MOVK</code>.
+Sometimes, the whole sequence takes fewer than 64 bits. That&rsquo;s shorter
+than <code>movabs</code> from x86-64, which uses a 64-bit immediate.</p>
+<p>For the constant <code>N</code>, pick a 16-bit chunk in that is not all bits set and use a
+<code>MOVN</code> to set the chunk, filling all other chunks with ones as well. If no such
+chunk exists, then all bits are set, and we&rsquo;re done with a single <code>MOVN</code>.
+Otherwise, set other chunks of <code>N</code> with <code>MOVK</code>.</p>
+<p>If there is even a single 16-bit chunk of ones in <code>N</code>, the initial <code>MOVN</code>
+finishes setting two chunks or more in one go, beating out only using <code>MOVK</code>.
 <code>MOVZ</code> covers positive numbers and <code>MOVN</code> covers the negatives.</p>
-<p>This strategy is not limited to negative numbers, though. For example,
-<code>0x7000_ffff_cafe_ffff</code> can be set efficiently with two instructions.</p>
+<p>This strategy is not limited to negative numbers. For example, it
+sets <code>0x7000_ffff_cafe_ffff</code> with just two instructions.</p>
 <h2 id="play-with-it">Play with it!</h2>
 <p>On a browser with WASM support, there should be an interactive toy below that
 implements the <code>MOVN</code> strategy. It only uses <code>MOVN</code> and <code>MOVK</code>, so
@@ -133,7 +146,7 @@ Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.
 
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
 <br>
-<pre id=disasmOutput style="height: 4lh;"></pre>
+<pre id="disasmOutput"></pre>
 <script>
     Module = {
         noExitRuntime: true,
@@ -186,6 +199,16 @@ Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.
 <script src="/arm64_movn.js" defer></script>
 
 
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>It follows that <a href="https://doc.rust-lang.org/std/primitive.u64.html#method.leading_zeros"><code>n.leading_zeros() + n.leading_ones() + 1</code></a> gives the
+shortest number of bits a number takes to encode. One of the terms in the sum
+is always zero.&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
 
         </div>
         
