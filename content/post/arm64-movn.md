@@ -73,7 +73,7 @@ Please excuse the huge 3MB download size -- I made no effort minimizing it.
 {{<html>}}
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
 <br>
-<pre id=disasmOutput style="height: 4lh;"></pre>
+<pre id="disasmOutput"></pre>
 <script>
     Module = {
         noExitRuntime: true,
