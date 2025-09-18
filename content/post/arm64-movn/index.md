@@ -18,7 +18,7 @@ pattern is to use
 which sets any one of the four 16-bit chunks of the register without touching
 any other chunks. So, four `MOVK` instructions can assemble any 64-bit pattern.
 
-Adding `MOVZ` to the mix improves this strategy. Small numbers have many zeros
+Adding [`MOVZ`](https://developer.arm.com/documentation/ddi0602/2025-06/Base-Instructions/MOVZ--Move-wide-with-zero-?lang=en) to the mix improves this strategy. Small numbers have many zeros
 in the pattern, so we'd rather start by zeroing the whole register than
 zeroing out one 16-bit chunk at a time with `MOVK`. In one go, `MOVZ` sets one
 16-bit chunk to the desired value and also zeros out all other chunks. For
