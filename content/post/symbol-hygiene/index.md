@@ -1,6 +1,8 @@
 ---
 title: "Linking Rust and C: Practicing Symbol Hygiene"
 date: 2023-02-14T16:08:02.796Z
+build:
+  publishResources: false
 ---
 
 This is a post about the bits and pieces I learned while trying to fix a symbol
