@@ -39,24 +39,30 @@ value -2<sup>K+1</sup>{{</html>}}, though, so adding a leading one preserves
 the numeric value of the encoded number. This is one way to see why -1 is
 encoded as all bits ones. Start with a single one and add leading ones.
 
-When the sign bit is set, clear bits for to get away from zero.
+Leading ones are to negative numbers what leading zeros are to positive
+numbers. [^1]
+
+[^1]: It follows that [`n.leading_zeros() + n.leading_ones() + 1`](https://doc.rust-lang.org/std/primitive.u64.html#method.leading_zeros) gives the
+shortest number of bits a number takes to encode. One of the terms in the sum
+is always zero.
 
 ## Strategy using `MOVN`
 
 Using `MOVN` and `MOVK` gives a pretty good strategy for negative numbers.
-Sometimes, the instruction sequence takes fewer than 64-bits!
+Sometimes, the whole sequence takes fewer than 64 bits. That's shorter
+than `movabs` from x86-64, which uses a 64-bit immediate.
 
-When setting a register to a constant `N`, pick a 16-bit block in `N` that is
-not all bits set, and use a `MOVN` to set that block, which also sets all bits
-outside the block to one. If no such block exists, then `N` has all bits set,
-and a single `MOVN` is enough. Otherwise, set other blocks of `N` with `MOVK`.
+For the constant `N`, pick a 16-bit chunk in that is not all bits set and use a
+`MOVN` to set the chunk, filling all other chunks with ones as well. If no such
+chunk exists, then all bits are set, and we're done with a single `MOVN`.
+Otherwise, set other chunks of `N` with `MOVK`.
 
-If there is even a single 16-bit block of ones in `N`, the initial `MOVN`
-finishes setting two blocks or more in one go, beating out only using `MOVK`.
+If there is even a single 16-bit chunk of ones in `N`, the initial `MOVN`
+finishes setting two chunks or more in one go, beating out only using `MOVK`.
 `MOVZ` covers positive numbers and `MOVN` covers the negatives.
 
-This strategy is not limited to negative numbers, though. For example,
-`0x7000_ffff_cafe_ffff` can be set efficiently with two instructions.
+This strategy is not limited to negative numbers. For example, it
+sets `0x7000_ffff_cafe_ffff` with just two instructions.
 
 ## Play with it!
 
