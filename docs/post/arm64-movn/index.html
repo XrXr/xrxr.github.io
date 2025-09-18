@@ -203,8 +203,8 @@ Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.
 <hr>
 <ol>
 <li id="fn:1">
-<p>It follows that <a href="https://doc.rust-lang.org/std/primitive.u64.html#method.leading_zeros"><code>n.leading_zeros() + n.leading_ones() + 1</code></a> gives the
-minimum number of bits it takes to encode <code>n</code>. One of the terms in the sum
+<p>It follows that <a href="https://doc.rust-lang.org/std/primitive.u64.html#method.leading_zeros"><code>typeof(n)::BITS - n.leading_zeros() - n.leading_ones() + 1</code></a> gives the
+minimum number of bits it takes to encode <code>n</code>. One of the terms
 is always zero.&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 </ol>
