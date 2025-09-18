@@ -2,33 +2,3 @@ article {
     text-align: justify;
     word-break: auto-phrase;
 }
-
-/* arm64-movn WASM toy */
-#constantInput {
-    font-family: monospace;
-    font-size: 0.90rem;
-    width: 20em;
-    text-align: center;
-    border-style: solid;
-    background-color: var(--bg-color);
-    color: var(--font-color);
-    border-color: var(--post-info-color);
-    border-width: 2px;
-    outline: none;
-}
-
-#constantInput:focus-visible {
-    border-color: var(--link-state-border-color);
-}
-
-#disasmOutput {
-    font-family: monospace;
-    font-size: 0.90rem;
-    line-height: 154%;
-    height: 4lh;
-    background-color: var(--bg-color);
-    color: var(--font-color);
-    border-width: 3px;
-    border-color: var(--link-state-border-color);
-    border-style: dashed;
-}
