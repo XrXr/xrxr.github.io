@@ -33,7 +33,7 @@
 
 
 
-<link rel="stylesheet" href="https://alanwu.space/32f0b7ed75cbb07a.min.bc02eb9fcefaae95f5be9725cfae8ac1de53ccb89c54756fa1ee8ddca31ef628.css" integrity="sha256-vALrn876rpX1vpclz66Kwd5TzLicVHVvoe6N3KMe9ig=">
+<link rel="stylesheet" href="https://alanwu.space/ecc9100014a924c0.min.348cca4291ed9c86a2bee6f440b26daffc2e768be8a205d901cab539602ffac4.css" integrity="sha256-NIzKQpHtnIaivub0QLJtr/wudovoogXZAcq1OWAv&#43;sQ=">
 
 
 
@@ -85,20 +85,20 @@
         </header>
         <div class="content e-content">
             <p>Here is a program that crashes Ruby 2.7.0:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>hash <span style="color:#f92672">=</span> { <span style="color:#e6db74">a</span>: <span style="color:#66d9ef">Object</span><span style="color:#f92672">.</span>new }
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start
-</span></span><span style="display:flex;"><span>hash<span style="color:#f92672">.</span>transform_values!{ <span style="color:#66d9ef">Object</span><span style="color:#f92672">.</span>new }
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start(<span style="color:#e6db74">full_mark</span>: <span style="color:#66d9ef">false</span>)
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">hash</span><span style="color:#00d3d0">.</span>transform_values!{ Object<span style="color:#00d3d0">.</span>new }
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start(<span style="color:#79a8ff">full_mark</span>: <span style="color:#b6a0ff">false</span>)
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
 </span></span></code></pre></div><p>The crash message is scary and subtly hints at the presence of a bug:</p>
-<pre tabindex="0"><code>[BUG] try to mark T_NONE object
-</code></pre><p>In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.</p>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>[BUG] try to mark T_NONE object
+</span></span></code></pre></div><p>In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.</p>
 <h2 id="is-it-a-bug-in-the-garbage-collector">Is it a bug in the garbage collector?</h2>
 <p>Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with <code>--disable-gems</code>, it&rsquo;s clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that <code>gc.c</code> initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty of this crash? It turns out, there is a method, <code>GC.verify_internal_consistency</code> that can help us out.</p>
 <p>Adding a call to this method right after the call to <code>transform_values!</code> in our reproducer, we get a different message:</p>
-<pre tabindex="0"><code>verify_internal_consistency_reachable_i: WB miss (O-&gt;Y) T_HASH -&gt; T_OBJECT
-crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
-</code></pre><p>Okay, it looks like some invariant that the GC cares about is not upheld, but what is a &ldquo;WB miss&rdquo;?</p>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>verify_internal_consistency_reachable_i: WB miss (O-&gt;Y) T_HASH -&gt; T_OBJECT
+</span></span><span style="display:flex;"><span>crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
+</span></span></code></pre></div><p>Okay, it looks like some invariant that the GC cares about is not upheld, but what is a &ldquo;WB miss&rdquo;?</p>
 <h2 id="incremental-mark-and-sweep">Incremental mark and sweep</h2>
 <p>WB stands for write barrier so <code>gc_verify_internal_consistency</code> is telling us that there is a &ldquo;write barrier miss&rdquo;. To understand what write barriers are and what they are for, we first need to understand how the GC functions. Once upon a time, Ruby had a stop-the-world mark-and-sweep GC. &ldquo;Stop-the-world&rdquo; sounds grandiose, but it basically means no Ruby code is running while the GC is doing work. I made some animated slides to explain the stop-the-world GC algorithm. <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 
@@ -1384,19 +1384,19 @@ crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 <p>There are many garbage collected languages that ship with compilers that can automatically insert write barriers. CRuby does not have that luxury, however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.</p>
 <h2 id="consequences">Consequences</h2>
 <p>Missing write barriers can make the GC collect live objects and lead to <a href="https://en.wikipedia.org/w/index.php?title=Use_after_free">use-after-free</a>. This can lead to crashes like we have seen, or worse, silent data corruption. The following program demonstrates data corruption:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>hash <span style="color:#f92672">=</span> { <span style="color:#e6db74">a</span>: <span style="color:#66d9ef">Object</span><span style="color:#f92672">.</span>new }
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start
-</span></span><span style="display:flex;"><span>hash<span style="color:#f92672">.</span>transform_values!{ <span style="color:#ae81ff">2</span> <span style="color:#f92672">**</span> <span style="color:#ae81ff">99</span> }
-</span></span><span style="display:flex;"><span>p hash
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start(<span style="color:#e6db74">full_mark</span>: <span style="color:#66d9ef">false</span>)
-</span></span><span style="display:flex;"><span>p hash
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">hash</span><span style="color:#00d3d0">.</span>transform_values!{ <span style="color:#00bcff">2</span> <span style="color:#00d3d0">**</span> <span style="color:#00bcff">99</span> }
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> <span style="color:#f78fe7">hash</span>
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start(<span style="color:#79a8ff">full_mark</span>: <span style="color:#b6a0ff">false</span>)
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> <span style="color:#f78fe7">hash</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">=begin
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">$ ruby -v corrupt.rb
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">ruby 2.7.0p0 (2019-12-25 revision 647ee6f091) [x86_64-darwin19]
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">{:a=&gt;633825300114114700748351602688}
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">{:a=&gt;&#34;:a&#34;}
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">=end</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8">=begin
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">$ ruby -v corrupt.rb
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">ruby 2.7.0p0 (2019-12-25 revision 647ee6f091) [x86_64-darwin19]
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">{:a=&gt;633825300114114700748351602688}
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">{:a=&gt;&#34;:a&#34;}
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">=end</span>
 </span></span></code></pre></div><p>Running the GC should not have visible impact on live objects.</p>
 <h2 id="possible-ways-to-prevent-this-in-the-future">Possible ways to prevent this in the future</h2>
 <p>To quote Koichi Sasada in a <a href="https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf">paper</a> about CRuby&rsquo;s write barriers:</p>

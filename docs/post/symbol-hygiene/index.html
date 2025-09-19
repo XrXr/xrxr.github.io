@@ -35,7 +35,7 @@
 
 
 
-<link rel="stylesheet" href="https://alanwu.space/d8d156b77557aa58.min.7c37195fc10a0d6334b27947dddf1ec665b2541e25b10b9dbba1be4fdd4af193.css" integrity="sha256-fDcZX8EKDWM0snlH3d8exmWyVB4lsQudu6G&#43;T91K8ZM=">
+<link rel="stylesheet" href="https://alanwu.space/604b248622fed0af.min.734a1c2de19ef0d17b36a9d0b36af26fc777587a257fbdca169f55b8fb56dc53.css" integrity="sha256-c0ocLeGe8NF7NqnQs2ryb8d3WHolf73KFp9VuPtW3FM=">
 
 
 
@@ -122,8 +122,8 @@ ones. A new CRuby release rolls around, and you decide to try out YJIT. You
 build the new YJIT-enabled CRuby static library and pass it to your old build
 setup. What happens?</p>
 <blockquote>
-<p>lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality'
-&hellip;</p>
+<p>lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality'</p>
+<p>&hellip;</p>
 <p>collect2: error: ld returned 1 exit status</p></blockquote>
 <p>Oof. Not fun. Who&rsquo;s <code>collect2</code> and what&rsquo;s <code>rust_eh_personality</code> anyways? Maybe
 you decide to disable YJIT because it&rsquo;s the new thing that causes build
@@ -149,53 +149,53 @@ Only the libc functions you use end up in the final image.</p>
 <p><em>This selective linking behavior can mask multiple definition errors.</em> Let&rsquo;s
 look at a concrete reproducer for <a href="https://github.com/rust-lang/rust/issues/44322"><code>rust-lang/rust#44322</code></a> and look at what
 objects the linker chooses to extract.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/sh
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># This is repro.sh. It assumes you&#39;re working with GNU Binutils.</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run in an empty directory.</span>
-</span></span><span style="display:flex;"><span>CC<span style="color:#f92672">=</span>cc
-</span></span><span style="display:flex;"><span>RUSTC<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;rustc +1.67.1&#39;</span> <span style="color:#75715e"># Your distro&#39;s rustc might not support this +... syntax.</span>
-</span></span><span style="display:flex;"><span>CODEGEN_OPTS<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;-O&#39;</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span>$1<span style="color:#e6db74">&#34;</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;lto&#39;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    CODEGEN_OPTS<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">${</span>CODEGEN_OPTS<span style="color:#e6db74">}</span><span style="color:#e6db74"> -Clto&#34;</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">fi</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#a8a8a8">#!/bin/sh
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span><span style="color:#a8a8a8">#</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># This is repro.sh. It assumes you&#39;re working with GNU Binutils.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Run in an empty directory.</span>
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">CC</span><span style="color:#00d3d0">=</span>cc
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">RUSTC</span><span style="color:#00d3d0">=</span><span style="color:#79a8ff">&#39;rustc +1.67.1&#39;</span> <span style="color:#a8a8a8"># Your distro&#39;s rustc might not support this +... syntax.</span>
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">CODEGEN_OPTS</span><span style="color:#00d3d0">=</span><span style="color:#79a8ff">&#39;-O&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">if</span> <span style="color:#00d3d0">[</span> <span style="color:#79a8ff">&#34;</span><span style="color:#00d3d0">$1</span><span style="color:#79a8ff">&#34;</span> <span style="color:#00d3d0">=</span> <span style="color:#79a8ff">&#39;lto&#39;</span> <span style="color:#00d3d0">]</span>; <span style="color:#b6a0ff">then</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#00d3d0">CODEGEN_OPTS</span><span style="color:#00d3d0">=</span><span style="color:#79a8ff">&#34;</span><span style="color:#79a8ff">${</span><span style="color:#00d3d0">CODEGEN_OPTS</span><span style="color:#79a8ff">}</span><span style="color:#79a8ff"> -Clto&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">fi</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>set -o errexit
-</span></span><span style="display:flex;"><span>set -o nounset
-</span></span><span style="display:flex;"><span>set -o xtrace
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o errexit
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o nounset
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o xtrace
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Make libone.a. It defines the &#34;_one&#34; symbol.</span>
-</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#39;%s&#39;</span> <span style="color:#e6db74">&#39;#[no_mangle] pub extern &#34;C&#34; fn one() -&gt; std::ffi::c_int { 1 }&#39;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    | $RUSTC $CODEGEN_OPTS --crate-type<span style="color:#f92672">=</span>staticlib -o libone.a -
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Make libone.a. It defines the &#34;_one&#34; symbol.</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">printf</span> <span style="color:#79a8ff">&#39;%s&#39;</span> <span style="color:#79a8ff">&#39;#[no_mangle] pub extern &#34;C&#34; fn one() -&gt; std::ffi::c_int { 1 }&#39;</span> <span style="color:#79a8ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff"></span>    | <span style="color:#00d3d0">$RUSTC</span> <span style="color:#00d3d0">$CODEGEN_OPTS</span> --crate-type<span style="color:#00d3d0">=</span>staticlib -o libone.a -
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Make libtwo.a. It defines the &#34;_two&#34; symbol.</span>
-</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#39;%s&#39;</span> <span style="color:#e6db74">&#39;#[no_mangle] pub extern &#34;C&#34; fn two() -&gt; std::ffi::c_int { 2 }&#39;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    | $RUSTC $CODEGEN_OPTS --crate-type<span style="color:#f92672">=</span>staticlib -o libtwo.a -
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Make libtwo.a. It defines the &#34;_two&#34; symbol.</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">printf</span> <span style="color:#79a8ff">&#39;%s&#39;</span> <span style="color:#79a8ff">&#39;#[no_mangle] pub extern &#34;C&#34; fn two() -&gt; std::ffi::c_int { 2 }&#39;</span> <span style="color:#79a8ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff"></span>    | <span style="color:#00d3d0">$RUSTC</span> <span style="color:#00d3d0">$CODEGEN_OPTS</span> --crate-type<span style="color:#00d3d0">=</span>staticlib -o libtwo.a -
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Make my.o, which calls both one() and two()</span>
-</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#39;%s&#39;</span> <span style="color:#e6db74">&#39;int one(void); int two(void); void my(void) { one(); two(); }&#39;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    | $CC -x c -std<span style="color:#f92672">=</span>c99 -c -o my.o -
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Make my.o, which calls both one() and two()</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">printf</span> <span style="color:#79a8ff">&#39;%s&#39;</span> <span style="color:#79a8ff">&#39;int one(void); int two(void); void my(void) { one(); two(); }&#39;</span> <span style="color:#79a8ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff"></span>    | <span style="color:#00d3d0">$CC</span> -x c -std<span style="color:#00d3d0">=</span>c99 -c -o my.o -
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Link everything together to produce libmy.so.</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># `--trace-symbol=...` is a GNU linker feature.</span>
-</span></span><span style="display:flex;"><span>$CC -shared -Wl,--trace-symbol<span style="color:#f92672">=</span>one -Wl,--trace-symbol<span style="color:#f92672">=</span>two -Wl,--trace-symbol<span style="color:#f92672">=</span>rust_eh_personality -o libmy.so my.o libone.a libtwo.a
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Link everything together to produce libmy.so.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># `--trace-symbol=...` is a GNU linker feature.</span>
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">$CC</span> -shared -Wl,--trace-symbol<span style="color:#00d3d0">=</span>one -Wl,--trace-symbol<span style="color:#00d3d0">=</span>two -Wl,--trace-symbol<span style="color:#00d3d0">=</span>rust_eh_personality -o libmy.so my.o libone.a libtwo.a
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>: <span style="color:#e6db74">&#39;Success!&#39;</span>
+</span></span><span style="display:flex;"><span>: <span style="color:#79a8ff">&#39;Success!&#39;</span>
 </span></span></code></pre></div><p>Run <code>sh repro.sh lto</code> to see the link error:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$                 <span style="color:#75715e"># Some filtering for brevity</span>
-</span></span><span style="display:flex;"><span>$ sh repro.sh lto 2&gt;&amp;<span style="color:#ae81ff">1</span> | cut -d <span style="color:#e6db74">&#39; &#39;</span> -f2-
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$                 <span style="color:#a8a8a8"># Some filtering for brevity</span>
+</span></span><span style="display:flex;"><span>$ sh repro.sh lto 2&gt;&amp;<span style="color:#00bcff">1</span> | cut -d <span style="color:#79a8ff">&#39; &#39;</span> -f2-
 </span></span><span style="display:flex;"><span>&lt;snip&gt;
 </span></span><span style="display:flex;"><span>my.o: reference to one
 </span></span><span style="display:flex;"><span>my.o: reference to two
-</span></span><span style="display:flex;"><span>libone.a<span style="color:#f92672">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: definition of one
-</span></span><span style="display:flex;"><span>libone.a<span style="color:#f92672">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: definition of rust_eh_personality
-</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#f92672">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: definition of two
-</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#f92672">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: in <span style="color:#66d9ef">function</span> <span style="color:#e6db74">`</span>rust_eh_personality<span style="color:#e6db74">&#39;:
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">multiple definition of `rust_eh_personality&#39;</span>; libone.a<span style="color:#f92672">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>:/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/personality/gcc.rs:244: first defined here
-</span></span><span style="display:flex;"><span>error: ld returned <span style="color:#ae81ff">1</span> exit status
+</span></span><span style="display:flex;"><span>libone.a<span style="color:#00d3d0">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: definition of one
+</span></span><span style="display:flex;"><span>libone.a<span style="color:#00d3d0">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: definition of rust_eh_personality
+</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#00d3d0">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: definition of two
+</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#00d3d0">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: in <span style="color:#b6a0ff">function</span> <span style="color:#79a8ff">`</span>rust_eh_personality<span style="color:#79a8ff">&#39;:
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff">multiple definition of `rust_eh_personality&#39;</span>; libone.a<span style="color:#00d3d0">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>:/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/std/src/personality/gcc.rs:244: first defined here
+</span></span><span style="display:flex;"><span>error: ld returned <span style="color:#00bcff">1</span> <span style="color:#f78fe7">exit</span> status
 </span></span></code></pre></div><p>The linker&rsquo;s tracing output shows the process that leads to the conflict.
 Here is an abridged version of the story to highlight the important pieces:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span># expected, due to what we wrote in `my()`
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span># expected, due to what we wrote in `my()`
 </span></span><span style="display:flex;"><span>my.o: reference to one
 </span></span><span style="display:flex;"><span>my.o: reference to two
 </span></span><span style="display:flex;"><span>
@@ -212,13 +212,13 @@ Here is an abridged version of the story to highlight the important pieces:</p>
 </span></span><span style="display:flex;"><span>libtwo.a(libtwo.rust_out.o): multiple definition of `rust_eh_personality&#39;; libone.a(libone.rust_out.o): first defined here
 </span></span></code></pre></div><p>Ok, but then why does it work when we disable LTO? Let&rsquo;s see if the linker
 trace explains it:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ sh repro.sh 2&gt;&amp;<span style="color:#ae81ff">1</span> | cut -d <span style="color:#e6db74">&#39; &#39;</span> -f2-
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ sh repro.sh 2&gt;&amp;<span style="color:#00bcff">1</span> | cut -d <span style="color:#79a8ff">&#39; &#39;</span> -f2-
 </span></span><span style="display:flex;"><span>&lt;snip&gt;
 </span></span><span style="display:flex;"><span>my.o: reference to one
 </span></span><span style="display:flex;"><span>my.o: reference to two
-</span></span><span style="display:flex;"><span>libone.a<span style="color:#f92672">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: definition of one
-</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#f92672">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#f92672">)</span>: definition of two
-</span></span><span style="display:flex;"><span>: <span style="color:#e6db74">&#39;Success!&#39;</span>
+</span></span><span style="display:flex;"><span>libone.a<span style="color:#00d3d0">(</span>libone.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: definition of one
+</span></span><span style="display:flex;"><span>libtwo.a<span style="color:#00d3d0">(</span>libtwo.rust_out.7f80e3a4-cgu.0.rcgu.o<span style="color:#00d3d0">)</span>: definition of two
+</span></span><span style="display:flex;"><span>: <span style="color:#79a8ff">&#39;Success!&#39;</span>
 </span></span></code></pre></div><p>No extracted objects define <code>rust_eh_personality</code>, so there is no conflict!</p>
 <p>Under LTO, because of the way Rust chooses to split the staticlib into objects,
 <code>rust_eh_personality</code> comes along for the ride when linking against <code>one()</code>
@@ -227,8 +227,8 @@ expect <code>one</code> and only <code>one</code> to be available in <code>libon
 we wrote in the source, but that&rsquo;s not what we get. <code>rust_eh_personality</code> is
 part of the Rust&rsquo;s standard library (&ldquo;stdlib&rdquo; here on out). In fact, <code>libone.a</code>
 defines many more symbols:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ nm --just-symbols --defined-only --extern-only libone.a | wc -l
-</span></span><span style="display:flex;"><span><span style="color:#ae81ff">846</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ nm --just-symbols --defined-only --extern-only libone.a | wc -l
+</span></span><span style="display:flex;"><span><span style="color:#00bcff">846</span>
 </span></span></code></pre></div><p>That&rsquo;s a large interface for a one-line library!</p>
 <h2 id="ld--r-also-known-as-partial-linking"><code>ld -r</code>, also known as &ldquo;partial linking&rdquo;</h2>
 <p>To avoid potential conflicts, our goal is to trim the output of the <code>nm</code>
@@ -318,54 +318,54 @@ than a blocklist one &mdash; great for intentional curation.</p>
 short for &ldquo;external&rdquo;. From what we saw earlier, duplicate external symbols
 cause conflicts when linking statically. Does making an external symbol hidden
 solve the conflict? Let&rsquo;s try:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/sh
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># This is hidden-and-extern.sh.</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># We were with ELF earlier, let&#39;s switch to Mach-O now.</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Run in an empty directory.</span>
-</span></span><span style="display:flex;"><span>CC<span style="color:#f92672">=</span>clang
-</span></span><span style="display:flex;"><span>CFLAGS<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;-fvisibility=hidden -x c -std=c99 -c&#39;</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#a8a8a8">#!/bin/sh
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span><span style="color:#a8a8a8"># This is hidden-and-extern.sh.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># We were with ELF earlier, let&#39;s switch to Mach-O now.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Run in an empty directory.</span>
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">CC</span><span style="color:#00d3d0">=</span>clang
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">CFLAGS</span><span style="color:#00d3d0">=</span><span style="color:#79a8ff">&#39;-fvisibility=hidden -x c -std=c99 -c&#39;</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>set -o errexit
-</span></span><span style="display:flex;"><span>set -o nounset
-</span></span><span style="display:flex;"><span>set -o xtrace
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o errexit
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o nounset
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">set</span> -o xtrace
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># First definition of h_and_e()</span>
-</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#39;%s&#39;</span> <span style="color:#e6db74">&#39;extern void h_and_e(void) {}&#39;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    | $CC $CFLAGS -o h1.o -
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># First definition of h_and_e()</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">printf</span> <span style="color:#79a8ff">&#39;%s&#39;</span> <span style="color:#79a8ff">&#39;extern void h_and_e(void) {}&#39;</span> <span style="color:#79a8ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff"></span>    | <span style="color:#00d3d0">$CC</span> <span style="color:#00d3d0">$CFLAGS</span> -o h1.o -
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Second definition of h_and_e()</span>
-</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#39;%s&#39;</span> <span style="color:#e6db74">&#39;extern void h_and_e(void) { __builtin_trap(); }&#39;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    | $CC $CFLAGS -o h2.o -
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Second definition of h_and_e()</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">printf</span> <span style="color:#79a8ff">&#39;%s&#39;</span> <span style="color:#79a8ff">&#39;extern void h_and_e(void) { __builtin_trap(); }&#39;</span> <span style="color:#79a8ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#79a8ff"></span>    | <span style="color:#00d3d0">$CC</span> <span style="color:#00d3d0">$CFLAGS</span> -o h2.o -
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Show symbol attributes for both definitions</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># (this assumes you have a recent Xcode toolchain, which ships llvm-nm)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Show symbol attributes for both definitions</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># (this assumes you have a recent Xcode toolchain, which ships llvm-nm)</span>
 </span></span><span style="display:flex;"><span>nm -f darwin h1.o h2.o | grep h_and_e
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># Try linking to make a shared library</span>
-</span></span><span style="display:flex;"><span>$CC -shared -o libmy.dylib h1.o h2.o
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8"># Try linking to make a shared library</span>
+</span></span><span style="display:flex;"><span><span style="color:#00d3d0">$CC</span> -shared -o libmy.dylib h1.o h2.o
 </span></span></code></pre></div><p>No, hidden external symbols conflict too:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ sh hidden-and-extern.sh
-</span></span><span style="display:flex;"><span>+ printf %s <span style="color:#e6db74">&#39;extern void h_and_e(void) {}&#39;</span>
-</span></span><span style="display:flex;"><span>+ clang -fvisibility<span style="color:#f92672">=</span>hidden -x c -std<span style="color:#f92672">=</span>c99 -c -o h1.o -
-</span></span><span style="display:flex;"><span>+ printf %s <span style="color:#e6db74">&#39;extern void h_and_e(void) { __builtin_trap(); }&#39;</span>
-</span></span><span style="display:flex;"><span>+ clang -fvisibility<span style="color:#f92672">=</span>hidden -x c -std<span style="color:#f92672">=</span>c99 -c -o h2.o -
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ sh hidden-and-extern.sh
+</span></span><span style="display:flex;"><span>+ <span style="color:#f78fe7">printf</span> %s <span style="color:#79a8ff">&#39;extern void h_and_e(void) {}&#39;</span>
+</span></span><span style="display:flex;"><span>+ clang -fvisibility<span style="color:#00d3d0">=</span>hidden -x c -std<span style="color:#00d3d0">=</span>c99 -c -o h1.o -
+</span></span><span style="display:flex;"><span>+ <span style="color:#f78fe7">printf</span> %s <span style="color:#79a8ff">&#39;extern void h_and_e(void) { __builtin_trap(); }&#39;</span>
+</span></span><span style="display:flex;"><span>+ clang -fvisibility<span style="color:#00d3d0">=</span>hidden -x c -std<span style="color:#00d3d0">=</span>c99 -c -o h2.o -
 </span></span><span style="display:flex;"><span>+ nm -f darwin h1.o h2.o
 </span></span><span style="display:flex;"><span>+ grep h_and_e
-</span></span><span style="display:flex;"><span><span style="color:#ae81ff">0000000000000000</span> <span style="color:#f92672">(</span>__TEXT,__text<span style="color:#f92672">)</span> private external _h_and_e
-</span></span><span style="display:flex;"><span><span style="color:#ae81ff">0000000000000000</span> <span style="color:#f92672">(</span>__TEXT,__text<span style="color:#f92672">)</span> private external _h_and_e
+</span></span><span style="display:flex;"><span><span style="color:#00bcff">0000000000000000</span> <span style="color:#00d3d0">(</span>__TEXT,__text<span style="color:#00d3d0">)</span> private external _h_and_e
+</span></span><span style="display:flex;"><span><span style="color:#00bcff">0000000000000000</span> <span style="color:#00d3d0">(</span>__TEXT,__text<span style="color:#00d3d0">)</span> private external _h_and_e
 </span></span><span style="display:flex;"><span>+ clang -shared -o libmy.dylib h1.o h2.o
-</span></span><span style="display:flex;"><span>duplicate symbol <span style="color:#e6db74">&#39;_h_and_e&#39;</span> in:
+</span></span><span style="display:flex;"><span>duplicate symbol <span style="color:#79a8ff">&#39;_h_and_e&#39;</span> in:
 </span></span><span style="display:flex;"><span>    h1.o
 </span></span><span style="display:flex;"><span>    h2.o
-</span></span><span style="display:flex;"><span>ld: <span style="color:#ae81ff">1</span> duplicate symbol <span style="color:#66d9ef">for</span> architecture arm64
-</span></span><span style="display:flex;"><span>clang: error: linker command failed with exit code <span style="color:#ae81ff">1</span> <span style="color:#f92672">(</span>use -v to see invocation<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>ld: <span style="color:#00bcff">1</span> duplicate symbol <span style="color:#b6a0ff">for</span> architecture arm64
+</span></span><span style="display:flex;"><span>clang: error: linker <span style="color:#f78fe7">command</span> failed with <span style="color:#f78fe7">exit</span> code <span style="color:#00bcff">1</span> <span style="color:#00d3d0">(</span>use -v to see invocation<span style="color:#00d3d0">)</span>
 </span></span></code></pre></div><p>On Mach-O, these <code>private external</code> symbols have both the <a href="https://github.com/apple/darwin-xnu/blob/8f02f2a044b9bb1ad951987ef5bab20ec9486310/EXTERNAL_HEADERS/mach-o/nlist.h#L118"><code>N_PEXT</code></a> and the
 <code>N_EXT</code> bit set &mdash; they are separate attributes. Because <code>N_PEXT</code> sounds like
 &ldquo;private external&rdquo;, you may wonder what it means for a symbol to have <code>N_PEXT</code>
 set, but <code>N_EXT</code> clear. Those symbols are in fact non-external, <code>N_PEXT</code>
 <a href="https://github.com/llvm/llvm-project/blob/86cbf3d5f8a208e1129b4d75383ef792f1d8a4aa/llvm/tools/llvm-nm/llvm-nm.cpp#L486-L507">tracks</a> what the symbol once was:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ echo <span style="color:#e6db74">&#39;int main(void) {}&#39;</span> | cc -fvisibility<span style="color:#f92672">=</span>hidden -x c -std<span style="color:#f92672">=</span>c99 - | nm -f darwin a.out | grep main
-</span></span><span style="display:flex;"><span>0000000100003fb0 <span style="color:#f92672">(</span>__TEXT,__text<span style="color:#f92672">)</span> non-external <span style="color:#f92672">(</span>was a private external<span style="color:#f92672">)</span> _main
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ <span style="color:#f78fe7">echo</span> <span style="color:#79a8ff">&#39;int main(void) {}&#39;</span> | cc -fvisibility<span style="color:#00d3d0">=</span>hidden -x c -std<span style="color:#00d3d0">=</span>c99 - | nm -f darwin a.out | grep main
+</span></span><span style="display:flex;"><span>0000000100003fb0 <span style="color:#00d3d0">(</span>__TEXT,__text<span style="color:#00d3d0">)</span> non-external <span style="color:#00d3d0">(</span>was a private external<span style="color:#00d3d0">)</span> _main
 </span></span></code></pre></div><p>Non-external symbols (<code>N_EXT</code> bit is clear) in the input to the final link are
 naturally not exported. This makes sense considering the semantics of the
 language features that produce these symbols. Think <code>static</code> functions in C and
@@ -454,7 +454,7 @@ code in the object files, so we just need to pass <code>--no-llvm-bc</code>.</p>
 <h3 id="the-return-of-rust_eh_personality">The return of <code>rust_eh_personality</code></h3>
 <p>Great, we can hide all the symbols we want. Let&rsquo;s try linking <code>libyjit.o</code> with
 everything else&hellip;</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>linking miniruby
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>linking miniruby
 </span></span><span style="display:flex;"><span>Undefined symbols for architecture arm64:
 </span></span><span style="display:flex;"><span>  &#34;_rust_eh_personality&#34;, referenced from:
 </span></span><span style="display:flex;"><span>      ___rust_try in libyjit.o
@@ -463,33 +463,33 @@ everything else&hellip;</p>
 </span></span><span style="display:flex;"><span>      ...
 </span></span><span style="display:flex;"><span>ld: symbol(s) not found for architecture arm64
 </span></span></code></pre></div><p>Excuse me? It&rsquo;s defined, and right there in the symbol table:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ nm --no-llvm-bc --defined-only --format darwin yjit/target/debug/libyjit.o | grep rust_eh_personality
-</span></span><span style="display:flex;"><span><span style="color:#ae81ff">0000000000368534</span> <span style="color:#f92672">(</span>__TEXT,__text<span style="color:#f92672">)</span> non-external <span style="color:#f92672">(</span>was a private external<span style="color:#f92672">)</span> _rust_eh_personality
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ nm --no-llvm-bc --defined-only --format darwin yjit/target/debug/libyjit.o | grep rust_eh_personality
+</span></span><span style="display:flex;"><span><span style="color:#00bcff">0000000000368534</span> <span style="color:#00d3d0">(</span>__TEXT,__text<span style="color:#00d3d0">)</span> non-external <span style="color:#00d3d0">(</span>was a private external<span style="color:#00d3d0">)</span> _rust_eh_personality
 </span></span></code></pre></div><p>This seems to be an ld64 bug. LLVM&rsquo;s linker, <a href="https://lld.llvm.org/">LLD</a>, links it just fine. Is the
 bug in <code>ld -r</code>? Well, I can recreate the error without any <code>ld -r</code> involvement:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span><span style="color:#75715e">; This is test.s
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">;
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">; ld64 fails to link unless the following line is uncommented:
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">; .private_extern _my_personality
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">;
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">; lld version 15 links successfully either way.
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">.align</span> <span style="color:#ae81ff">4</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span><span style="color:#a8a8a8">; This is test.s
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">;
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">; ld64 fails to link unless the following line is uncommented:
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">; .private_extern _my_personality
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">;
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">; lld version 15 links successfully either way.
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span>.align <span style="color:#00bcff">4</span>
 </span></span><span style="display:flex;"><span>_my_personality:
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#feacd0">ret</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">.global</span> <span style="color:#66d9ef">_fun</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">.align</span> <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>.global _fun
+</span></span><span style="display:flex;"><span>.align <span style="color:#00bcff">4</span>
 </span></span><span style="display:flex;"><span>_fun:
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">.cfi_startproc</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">; 0x9b = DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">.cfi_personality</span> <span style="color:#ae81ff">0x9b</span>, <span style="color:#66d9ef">_my_personality</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ret</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">.cfi_endproc</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ as test.s -o test.o <span style="color:#f92672">&amp;&amp;</span> clang -shared test.o
-</span></span><span style="display:flex;"><span>Undefined symbols <span style="color:#66d9ef">for</span> architecture arm64:
-</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;_my_personality&#34;</span>, referenced from:
+</span></span><span style="display:flex;"><span>  .cfi_startproc
+</span></span><span style="display:flex;"><span>  <span style="color:#a8a8a8">; 0x9b = DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span>  .cfi_personality <span style="color:#00bcff">0x9b</span>, _my_personality
+</span></span><span style="display:flex;"><span>  <span style="color:#feacd0">ret</span>
+</span></span><span style="display:flex;"><span>  .cfi_endproc
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ as test.s -o test.o <span style="color:#00d3d0">&amp;&amp;</span> clang -shared test.o
+</span></span><span style="display:flex;"><span>Undefined symbols <span style="color:#b6a0ff">for</span> architecture arm64:
+</span></span><span style="display:flex;"><span>  <span style="color:#79a8ff">&#34;_my_personality&#34;</span>, referenced from:
 </span></span><span style="display:flex;"><span>      _fun in test.o
-</span></span><span style="display:flex;"><span>ld: symbol<span style="color:#f92672">(</span>s<span style="color:#f92672">)</span> not found <span style="color:#66d9ef">for</span> architecture arm64
+</span></span><span style="display:flex;"><span>ld: symbol<span style="color:#00d3d0">(</span>s<span style="color:#00d3d0">)</span> not found <span style="color:#b6a0ff">for</span> architecture arm64
 </span></span></code></pre></div><p>I guess ld64 has special treatment for personality function references encoded
 in <a href="https://faultlore.com/blah/compact-unwinding/">compact unwind</a>. Just a guess. Apple hasn&rsquo;t responded and for almost 2
 years now, <a href="https://opensource.apple.com/source/ld64/">hasn&rsquo;t released ld64&rsquo;s source code</a>. I&rsquo;m

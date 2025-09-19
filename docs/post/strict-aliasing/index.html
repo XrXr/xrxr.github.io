@@ -33,7 +33,7 @@
 
 
 
-<link rel="stylesheet" href="https://alanwu.space/32f0b7ed75cbb07a.min.bc02eb9fcefaae95f5be9725cfae8ac1de53ccb89c54756fa1ee8ddca31ef628.css" integrity="sha256-vALrn876rpX1vpclz66Kwd5TzLicVHVvoe6N3KMe9ig=">
+<link rel="stylesheet" href="https://alanwu.space/ecc9100014a924c0.min.348cca4291ed9c86a2bee6f440b26daffc2e768be8a205d901cab539602ffac4.css" integrity="sha256-NIzKQpHtnIaivub0QLJtr/wudovoogXZAcq1OWAv&#43;sQ=">
 
 
 
@@ -110,21 +110,21 @@ regardless.</p>
 to a read? It can decide to reorder the program and do the read first if it
 seems profitable for performance.</p>
 <p>Here is a <a href="https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYMQAZi6kHAGTwGTAA5dwAjTGIQADZSAAdUBUJbBmc3D29fROSbAUDgsJZI6LjLTGtUoQImYgJ0908fC0wrPIZq2oIC0Iio2IsauobM5oUh7qDe4v6YgEoLVFdiZHYOVwZk4GD0AFINAEFiTBIsYggNrZ2AagAqflQ5/YPdgHYAIWfr77uH692vAARa4aAGfQ5fH4KBAkAh3eIEYj/IHXCDQ2F3OYPMGQ763BFIgHArg4iGHH7XY4EZYMX6oVCkl6vQHPDgLWicACsvE8HC0pFQnEc1wUSxWmH%2BACYfLwCJo2QsANbeDQAOg0AE5XhoAByvLyvHUxSQaQ1xDkcSQ8%2BUCzi8BQgDSkOV8tmkOCwGBQL0QJBoFjxOhRciUf2B%2BjRZDALhcLx8OgEKIOiDhG3hIK1ACenB4pH9bEEAHkGLRs67SFgWIZgOJy/hjpUAG6YB3lzCqCquRM53hBRMW/m0PDhYhZ5xYG2IvAsHsLKgGYAKABqeEwAHdC/FGD2ZIIRGJ2FJd/IlGobbpJfpqyBTMZzEPwg7IAtUAjUq2ALSFyXXD/jPZAsgGoar%2BW7oIYNjIL%2BADqYi0DB4zEHg1gfmIeBMMkRhErm5SVHYEAOCMni%2BAEUxFCUeg5CkAhEZRSTUQwPTkf0vi4e0nTDC4jR6GxVQTExfTRKxEy0cJXQCTMQkLKKyyrHoiKYGsPDsly1rloKHCqEaH7GtcwDIFBMaql4qKOKQ1y4IQJBSs01zOAGQaEtKkpzLK8pzAsCCYEwZyUEqICcpIxmBV4IVhZIoX6JwVqkDOMSSqqnKkLy/IafajrOu57o%2BkgSwEPEXYhhAYaOSErBrFpMQ6ZIekGdcRleLwmD4EQSHoHo/B7qI4hHp1J4qOo5YXqQa6jvEs5RRw3LJTaGmFl2BVwqgVDXJV1W1YZXDGaZqAORGNkuW5roeaQXk%2Bf0ED%2BZInKqsanJ3Q910xElFoxSlvBpRYGUuloJ0WpKvAzpyOrGV4YPgxD4NxO9tocEdv3ZfAHqICgu3hsGFDFWjjkoNGsbxrQibEMmqblumzDEGWub5owBDFqWNqVtWtb8vWFQ2M2rb8u2nbdtwvaCK0NoPqOlPjms/JTjO/Nzguy6rhuW68rmfX7j10h9YoA3nnoBhGDeZj6MOT6XQKb4CJ%2B36/lQDCoH%2BU4oWhGFBMAv7/kSQEgR%2BYEQchMFwQhDsEKhQ7O1hQI4a07OpPYDBOFxmQkXHEkUdk9HtKJCTp6kKcsS0bR8V0me8QIHGTIUgk8SJCfEYM4lkZXXDSWKcm%2BApSluha00wxpa26fpm3bRAZkWS11m7NKvh2dj%2B0Tz4rmZcdnneb5pvKoFiUaNdW%2BcjvO%2BTTFM6SFtMSn2f59n68M3qXaX1Oj9brI76IB5YtRUlRGZVsJwfc1QP9VbUan4MebUOqyDVoeDWsgtZniGnoUaTBxoy0mt3WanB5r5S7NcZaq1tL9zqg1Hae0og2SbvDBUp0V4XSujdSQGpAr0LoQwzkL1opqVSrfB0993IqQ4ADWKIBj63QviImIV8e63wfidZUMQNSqg1BoSUGouCSnirGTkGpJSsI4EAiRcNF6/V4fwvR5CTrNmJjHSQQA%3D%3D">sample</a> where we can see GCC making use of the aliasing rules:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">unsigned</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">reorder</span>(<span style="color:#66d9ef">unsigned</span> <span style="color:#f92672">*</span>foo)
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#6ae4b9">unsigned</span>
+</span></span><span style="display:flex;"><span><span style="color:#feacd0">reorder</span>(<span style="color:#6ae4b9">unsigned</span> <span style="color:#00d3d0">*</span>foo)
 </span></span><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>foo <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#00d3d0">*</span>foo <span style="color:#00d3d0">=</span> <span style="color:#00bcff">0</span>;
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">short</span> <span style="color:#f92672">*</span>ptr <span style="color:#f92672">=</span> (<span style="color:#66d9ef">short</span> <span style="color:#f92672">*</span>)foo;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>ptr <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6ae4b9">short</span> <span style="color:#00d3d0">*</span>ptr <span style="color:#00d3d0">=</span> (<span style="color:#6ae4b9">short</span> <span style="color:#00d3d0">*</span>)foo;
+</span></span><span style="display:flex;"><span>    <span style="color:#00d3d0">*</span>ptr <span style="color:#00d3d0">=</span> <span style="color:#00bcff">1</span>;
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>foo;
+</span></span><span style="display:flex;"><span>    <span style="color:#b6a0ff">return</span> <span style="color:#00d3d0">*</span>foo;
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></div><p>Compiling with <code>-O2</code> gives the following:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">DWORD</span> <span style="color:#66d9ef">PTR</span> [<span style="color:#66d9ef">rdi</span>], <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span>     <span style="color:#66d9ef">eax</span>, <span style="color:#66d9ef">eax</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">mov</span>     DWORD PTR [rdi], <span style="color:#00bcff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">xor</span>     eax, eax
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">ret</span>
 </span></span></code></pre></div><p>The code is using an idiom to zero out <code>eax</code>, but the gist is that it&rsquo;s returning zero.
 GCC&rsquo;s output has a different order than our source program; <code>*ptr = 1</code> seems to
 have no effect on the final read from <code>foo</code>, even though one might understand
@@ -133,10 +133,10 @@ before <code>return *foo</code>, as ordered in the source code. Adding to the su
 indirect writes into one, seemingly via the understanding that <code>foo</code> and <code>ptr</code>
 have the same address! There seems to be some strange contradiction.</p>
 <p>Compile with <code>-O2 -fno-strict-aliasing</code> and we get something different:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">DWORD</span> <span style="color:#66d9ef">PTR</span> [<span style="color:#66d9ef">rdi</span>], <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span>     <span style="color:#66d9ef">eax</span>, <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span>reorder:
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">mov</span>     DWORD PTR [rdi], <span style="color:#00bcff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">mov</span>     eax, <span style="color:#00bcff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#feacd0">ret</span>
 </span></span></code></pre></div><p>Ah ha! By default, when GCC gets to use the powers granted to it by the
 standard, it can assume that <code>short</code> writes have no effect on <code>unsigned</code> reads,
 but <code>-fno-strict-aliasing</code> tells GCC to forget about that part of the standard.</p>
@@ -156,39 +156,39 @@ option <code>-fno-strict-aliasing</code> can be used as a work-around.</p></bloc
 <p>Let&rsquo;s go look at a practical example in CRuby where we did not follow the
 rules. If you&rsquo;d like to follow along, you can grab this <a href="https://github.com/ruby/ruby/commit/697eed63e81eff0e02226ceb6ab3bd2fd99000e3">commit</a> and build with
 the following commands:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./autogen.sh
-</span></span><span style="display:flex;"><span>$ ./configure cflags<span style="color:#f92672">=</span>-flto LDFLAGS<span style="color:#f92672">=</span>-flto
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./autogen.sh
+</span></span><span style="display:flex;"><span>$ ./configure <span style="color:#00d3d0">cflags</span><span style="color:#00d3d0">=</span>-flto <span style="color:#00d3d0">LDFLAGS</span><span style="color:#00d3d0">=</span>-flto
 </span></span><span style="display:flex;"><span>$ make -j8 miniruby
 </span></span></code></pre></div><p>I&rsquo;ll be using GCC 11.2.0 on a GNU/Linux distribution.</p>
 <p>This example has to do with an output parameter, where we expect a function to do
 a write using the out parameter before returning. The call site looks like
 this:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> VALUE;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> ID;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> st_table st_table;
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#b6a0ff">typedef</span> <span style="color:#6ae4b9">unsigned</span> <span style="color:#6ae4b9">long</span> VALUE;
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">typedef</span> <span style="color:#6ae4b9">unsigned</span> <span style="color:#6ae4b9">long</span> ID;
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">typedef</span> <span style="color:#b6a0ff">struct</span> st_table st_table;
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">rb_id_table_lookup</span>(<span style="color:#66d9ef">struct</span> rb_id_table <span style="color:#f92672">*</span>tbl, ID id, VALUE <span style="color:#f92672">*</span>valp);
-</span></span><span style="display:flex;"><span><span style="color:#75715e">//                                                            ^^^^
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//                                                  out param of interest
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">do_lookup</span>(<span style="color:#66d9ef">struct</span> rb_id_table <span style="color:#f92672">*</span>const_cache, ID id)
+</span></span><span style="display:flex;"><span><span style="color:#6ae4b9">int</span> <span style="color:#feacd0">rb_id_table_lookup</span>(<span style="color:#b6a0ff">struct</span> rb_id_table <span style="color:#00d3d0">*</span>tbl, ID id, VALUE <span style="color:#00d3d0">*</span>valp);
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8">//                                                            ^^^^
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">//                                                  out param of interest
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span>
+</span></span><span style="display:flex;"><span><span style="color:#6ae4b9">void</span>
+</span></span><span style="display:flex;"><span><span style="color:#feacd0">do_lookup</span>(<span style="color:#b6a0ff">struct</span> rb_id_table <span style="color:#00d3d0">*</span>const_cache, ID id)
 </span></span><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>    st_table <span style="color:#f92672">*</span>ics;
+</span></span><span style="display:flex;"><span>    st_table <span style="color:#00d3d0">*</span>ics;
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">rb_id_table_lookup</span>(constant_cache, id, (VALUE <span style="color:#f92672">*</span>) <span style="color:#f92672">&amp;</span>ics)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// successful lookup
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">st_foreach</span>(ics, iterator_fn, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#b6a0ff">if</span> (<span style="color:#feacd0">rb_id_table_lookup</span>(constant_cache, id, (VALUE <span style="color:#00d3d0">*</span>) <span style="color:#00d3d0">&amp;</span>ics)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a8a8a8">// successful lookup
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span>        <span style="color:#feacd0">st_foreach</span>(ics, iterator_fn, <span style="color:#00bcff">0</span>);
 </span></span><span style="display:flex;"><span>    }
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></div><p>When <code>rb_id_table_lookup()</code> returns 1, it indicates that it has written through <code>valp</code>:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#75715e">//... inside rb_id_table_lookup()
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (index <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>valp <span style="color:#f92672">=</span> tbl<span style="color:#f92672">-&gt;</span>items[index].val;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> TRUE;
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#a8a8a8">//... inside rb_id_table_lookup()
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span><span style="color:#b6a0ff">if</span> (index <span style="color:#00d3d0">&gt;=</span> <span style="color:#00bcff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#00d3d0">*</span>valp <span style="color:#00d3d0">=</span> tbl<span style="color:#00d3d0">-&gt;</span>items[index].val;
+</span></span><span style="display:flex;"><span>    <span style="color:#b6a0ff">return</span> TRUE;
 </span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#b6a0ff">return</span> FALSE;
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></div><p>Let&rsquo;s focus on the code path where the lookup succeeds and break it down into
 a sequence of accesses by type:</p>
@@ -203,7 +203,7 @@ intention &ndash; we want to make use of the output from the successful lookup s
 we always want the write to happen first!</p>
 <p>Does GCC tell us anything about this mismatch between our intention and what we wrote?
 Why yes:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>vm_method.c:146:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>vm_method.c:146:9: warning: ‘ics’ may be used uninitialized [-Wmaybe-uninitialized]
 </span></span><span style="display:flex;"><span>  146 |         st_foreach(ics, rb_clear_constant_cache_for_id_i, (st_data_t) NULL);
 </span></span><span style="display:flex;"><span>      |         ^
 </span></span><span style="display:flex;"><span>class.c: In function ‘clear_constant_cache_i’:

@@ -33,7 +33,7 @@
 
 
 
-<link rel="stylesheet" href="https://alanwu.space/32f0b7ed75cbb07a.min.bc02eb9fcefaae95f5be9725cfae8ac1de53ccb89c54756fa1ee8ddca31ef628.css" integrity="sha256-vALrn876rpX1vpclz66Kwd5TzLicVHVvoe6N3KMe9ig=">
+<link rel="stylesheet" href="https://alanwu.space/ecc9100014a924c0.min.348cca4291ed9c86a2bee6f440b26daffc2e768be8a205d901cab539602ffac4.css" integrity="sha256-NIzKQpHtnIaivub0QLJtr/wudovoogXZAcq1OWAv&#43;sQ=">
 
 
 
@@ -90,21 +90,21 @@ object = [] map = ObjectSpace::WeakMap.new map[object] = [object] p map.member?(
 to write to the object directly, maybe for design reasons or logistical reasons.
 (What if the object is frozen and immutable?) You can use <code>WeakMap</code> for this,
 and the garbage collector is free to collect keys of the map:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
-</span></span><span style="display:flex;"><span>map <span style="color:#f92672">=</span> <span style="color:#66d9ef">ObjectSpace</span><span style="color:#f92672">::</span><span style="color:#66d9ef">WeakMap</span><span style="color:#f92672">.</span>new
-</span></span><span style="display:flex;"><span>map<span style="color:#f92672">[</span>object<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#f92672">[</span>object<span style="color:#f92672">]</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#00d3d0">=</span> <span style="color:#00d3d0">[]</span>
+</span></span><span style="display:flex;"><span>map <span style="color:#00d3d0">=</span> ObjectSpace<span style="color:#00d3d0">::</span>WeakMap<span style="color:#00d3d0">.</span>new
+</span></span><span style="display:flex;"><span>map<span style="color:#00d3d0">[</span>object<span style="color:#00d3d0">]</span> <span style="color:#00d3d0">=</span> <span style="color:#00d3d0">[</span>object<span style="color:#00d3d0">]</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>p map<span style="color:#f92672">.</span>member?(object) <span style="color:#75715e"># =&gt; true</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> map<span style="color:#00d3d0">.</span>member?(object) <span style="color:#a8a8a8"># =&gt; true</span>
 </span></span></code></pre></div><p>There is an issue with this demo, however. Currently, Ruby&rsquo;s <code>WeakMap</code>
 doesn&rsquo;t keep the values of the map alive, so the map evicts the pair in the
 demo after a garbage collection run, even though the key survives:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#f92672">=</span> <span style="color:#f92672">[]</span>
-</span></span><span style="display:flex;"><span>map <span style="color:#f92672">=</span> <span style="color:#66d9ef">ObjectSpace</span><span style="color:#f92672">::</span><span style="color:#66d9ef">WeakMap</span><span style="color:#f92672">.</span>new
-</span></span><span style="display:flex;"><span>map<span style="color:#f92672">[</span>object<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#f92672">[</span>object<span style="color:#f92672">]</span>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span>object <span style="color:#00d3d0">=</span> <span style="color:#00d3d0">[]</span>
+</span></span><span style="display:flex;"><span>map <span style="color:#00d3d0">=</span> ObjectSpace<span style="color:#00d3d0">::</span>WeakMap<span style="color:#00d3d0">.</span>new
+</span></span><span style="display:flex;"><span>map<span style="color:#00d3d0">[</span>object<span style="color:#00d3d0">]</span> <span style="color:#00d3d0">=</span> <span style="color:#00d3d0">[</span>object<span style="color:#00d3d0">]</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>p map<span style="color:#f92672">.</span>member?(object) <span style="color:#75715e"># =&gt; true</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GC</span><span style="color:#f92672">.</span>start
-</span></span><span style="display:flex;"><span>p map<span style="color:#f92672">.</span>member?(object) <span style="color:#75715e"># =&gt; false, as of Ruby 3.4</span>
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> map<span style="color:#00d3d0">.</span>member?(object) <span style="color:#a8a8a8"># =&gt; true</span>
+</span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
+</span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> map<span style="color:#00d3d0">.</span>member?(object) <span style="color:#a8a8a8"># =&gt; false, as of Ruby 3.4</span>
 </span></span></code></pre></div><p>So, you can have the property, but it may go away when the collector decides to
 run. A bit unruly, but alright for some situations.</p>
 <p>ECMAScript also offers <code>WeakMap</code>, and they come with ephemerons. I like them
@@ -113,20 +113,20 @@ reliable way to achieve my contrived stated purpose. Nothing in the word &ldquo;
 and &ldquo;map&rdquo; indicate that ephemerons are involved, but the spec links to the 1997
 paper by Barry Hayes that introduced the mechanism.</p>
 <p>Here&rsquo;s a program you can run in your browser to get a taste of their semantics:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-js" data-lang="js"><span style="display:flex;"><span><span style="color:#75715e">// Make an object, and log when it becomes garbage
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">registry</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">FinalizationRegistry</span>((<span style="color:#a6e22e">value</span>) =&gt; {
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">value</span>, <span style="color:#e6db74">&#34;is garbage&#34;</span>)
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-js" data-lang="js"><span style="display:flex;"><span><span style="color:#a8a8a8">// Make an object, and log when it becomes garbage
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span><span style="color:#b6a0ff">const</span> registry <span style="color:#00d3d0">=</span> <span style="color:#b6a0ff">new</span> FinalizationRegistry((value) =&gt; {
+</span></span><span style="display:flex;"><span>  console.log(value, <span style="color:#79a8ff">&#34;is garbage&#34;</span>)
 </span></span><span style="display:flex;"><span>})
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">let</span> <span style="color:#a6e22e">object</span> <span style="color:#f92672">=</span> []
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">registry</span>.<span style="color:#a6e22e">register</span>(<span style="color:#a6e22e">object</span>, <span style="color:#e6db74">&#34;object&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#b6a0ff">let</span> object <span style="color:#00d3d0">=</span> []
+</span></span><span style="display:flex;"><span>registry.register(object, <span style="color:#79a8ff">&#34;object&#34;</span>)
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Put the object into a WeakMap and have the value reference itself
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">let</span> <span style="color:#a6e22e">map</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">WeakMap</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">map</span>.<span style="color:#a6e22e">set</span>(<span style="color:#a6e22e">object</span>, <span style="color:#a6e22e">object</span>)
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8">// Put the object into a WeakMap and have the value reference itself
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span><span style="color:#b6a0ff">let</span> map <span style="color:#00d3d0">=</span> <span style="color:#b6a0ff">new</span> WeakMap
+</span></span><span style="display:flex;"><span>map.set(object, object)
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Stop referring to the object through the local.
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// FireFox collects after a few seconds.
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">object</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">undefined</span>
+</span></span><span style="display:flex;"><span><span style="color:#a8a8a8">// Stop referring to the object through the local.
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8">// FireFox collects after a few seconds.
+</span></span></span><span style="display:flex;"><span><span style="color:#a8a8a8"></span>object <span style="color:#00d3d0">=</span> <span style="color:#00bcff">undefined</span>
 </span></span></code></pre></div><p>From my admittedly imperfect understanding, they offer a sort of one-way
 conditional liveness, where in a pair the value is live if the key is. Further,
 values kept alive solely due to this mechanism cannot &ldquo;upgrade&rdquo; their liveness

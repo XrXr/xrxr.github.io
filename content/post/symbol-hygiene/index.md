@@ -49,6 +49,7 @@ setup. What happens?
 
 
 >lib2.cgu-0.rs:(.text.rust_eh_personality+0x0): multiple definition of `rust_eh_personality'
+>
 >...
 >
 >collect2: error: ld returned 1 exit status

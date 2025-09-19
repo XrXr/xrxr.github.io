@@ -4,6 +4,10 @@ theme = "anubis"
 title = "Thoughts from Alan"
 publishDir = "docs"
 
+[markup.highlight]
+style = "modus-vivendi"
+guessSyntax = true
+
 [params]
 style = "auto-without-switcher"
 customCSS = [ "css/my.css" ]
