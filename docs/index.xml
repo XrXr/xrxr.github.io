@@ -52,15 +52,15 @@ numbers. &lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;f
 &lt;h2 id=&#34;strategy-using-movn&#34;&gt;Strategy using &lt;code&gt;MOVN&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;Using &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt; gives a pretty good strategy for negative numbers.
 Sometimes, the whole sequence takes fewer than 64 bits. That&amp;rsquo;s shorter than
-&lt;code&gt;movabs&lt;/code&gt; from x86-64, which uses a 64-bit immediate.&lt;/p&gt;
-&lt;p&gt;Pick a 16-bit chunk in the constant is not all bits set and use a &lt;code&gt;MOVN&lt;/code&gt; to set
-the chunk, filling all other chunks with ones as well. If no such chunk exists,
-then all bits are set, and a single &lt;code&gt;MOVN&lt;/code&gt; finishes the job. Otherwise, set
-other chunks with &lt;code&gt;MOVK&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;If there is even a single 16-bit chunk of ones in &lt;code&gt;N&lt;/code&gt;, the initial &lt;code&gt;MOVN&lt;/code&gt;
-finishes setting two chunks or more in one go, beating out the
-one-chunk-at-a-time &lt;code&gt;MOVK&lt;/code&gt;. &lt;code&gt;MOVZ&lt;/code&gt; covers positive numbers and &lt;code&gt;MOVN&lt;/code&gt; covers
-the negatives.&lt;/p&gt;
+&lt;code&gt;movabs&lt;/code&gt; from x86-64, which encodes all 64 bits of the constant into the
+instruction.&lt;/p&gt;
+&lt;p&gt;Pick a 16-bit chunk in the constant that is not all bits set and use a &lt;code&gt;MOVN&lt;/code&gt;
+to set the chunk, filling all other chunks with ones as well. If no such chunk
+exists, then all bits are set, and a single &lt;code&gt;MOVN&lt;/code&gt; finishes the job. Otherwise,
+set other chunks with &lt;code&gt;MOVK&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;If there is even a single 16-bit chunk of ones, the initial &lt;code&gt;MOVN&lt;/code&gt; finishes
+setting two chunks or more in one go, beating out the one-chunk-at-a-time
+&lt;code&gt;MOVK&lt;/code&gt;. &lt;code&gt;MOVZ&lt;/code&gt; fills zeros and &lt;code&gt;MOVN&lt;/code&gt; fills ones.&lt;/p&gt;
 &lt;p&gt;This strategy is not limited to negative numbers. For example, it sets
 &lt;code&gt;0x7000_ffff_cafe_ffff&lt;/code&gt; with just two instructions.&lt;/p&gt;
 &lt;h2 id=&#34;play-with-it&#34;&gt;Play with it!&lt;/h2&gt;
@@ -73,7 +73,7 @@ It&amp;rsquo;s made with &lt;a href=&#34;https://github.com/capstone-rust/capsto
 compiled through
 &lt;a href=&#34;https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html&#34;&gt;&lt;code&gt;wasm32-unknown-emscripten&lt;/code&gt;&lt;/a&gt;.
 It assembles the machine code bytes only to run it through a disassembler as an
-elaborate way of verifying the logic.&lt;/p&gt;
+elaborate way of verification.&lt;/p&gt;
 
 &lt;input type=&#34;text&#34; id=&#34;constantInput&#34; value=&#34;0x7000_ffff_cafe_ffff&#34;&gt;&lt;/input&gt;
 &lt;br&gt;

@@ -51,17 +51,17 @@ is always zero.
 
 Using `MOVN` and `MOVK` gives a pretty good strategy for negative numbers.
 Sometimes, the whole sequence takes fewer than 64 bits. That's shorter than
-`movabs` from x86-64, which uses a 64-bit immediate.
+`movabs` from x86-64, which encodes all 64 bits of the constant into the
+instruction.
 
-Pick a 16-bit chunk in the constant is not all bits set and use a `MOVN` to set
-the chunk, filling all other chunks with ones as well. If no such chunk exists,
-then all bits are set, and a single `MOVN` finishes the job. Otherwise, set
-other chunks with `MOVK`.
+Pick a 16-bit chunk in the constant that is not all bits set and use a `MOVN`
+to set the chunk, filling all other chunks with ones as well. If no such chunk
+exists, then all bits are set, and a single `MOVN` finishes the job. Otherwise,
+set other chunks with `MOVK`.
 
-If there is even a single 16-bit chunk of ones in `N`, the initial `MOVN`
-finishes setting two chunks or more in one go, beating out the
-one-chunk-at-a-time `MOVK`. `MOVZ` covers positive numbers and `MOVN` covers
-the negatives.
+If there is even a single 16-bit chunk of ones, the initial `MOVN` finishes
+setting two chunks or more in one go, beating out the one-chunk-at-a-time
+`MOVK`. `MOVZ` fills zeros and `MOVN` fills ones.
 
 This strategy is not limited to negative numbers. For example, it sets
 `0x7000_ffff_cafe_ffff` with just two instructions.
@@ -77,7 +77,7 @@ It's made with [`capstone-rs`](https://github.com/capstone-rust/capstone-rs)
 compiled through
 [`wasm32-unknown-emscripten`](https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html).
 It assembles the machine code bytes only to run it through a disassembler as an
-elaborate way of verifying the logic.
+elaborate way of verification.
 
 {{<html>}}
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>

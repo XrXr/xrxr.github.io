@@ -123,15 +123,15 @@ numbers. <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-notere
 <h2 id="strategy-using-movn">Strategy using <code>MOVN</code></h2>
 <p>Using <code>MOVN</code> and <code>MOVK</code> gives a pretty good strategy for negative numbers.
 Sometimes, the whole sequence takes fewer than 64 bits. That&rsquo;s shorter than
-<code>movabs</code> from x86-64, which uses a 64-bit immediate.</p>
-<p>Pick a 16-bit chunk in the constant is not all bits set and use a <code>MOVN</code> to set
-the chunk, filling all other chunks with ones as well. If no such chunk exists,
-then all bits are set, and a single <code>MOVN</code> finishes the job. Otherwise, set
-other chunks with <code>MOVK</code>.</p>
-<p>If there is even a single 16-bit chunk of ones in <code>N</code>, the initial <code>MOVN</code>
-finishes setting two chunks or more in one go, beating out the
-one-chunk-at-a-time <code>MOVK</code>. <code>MOVZ</code> covers positive numbers and <code>MOVN</code> covers
-the negatives.</p>
+<code>movabs</code> from x86-64, which encodes all 64 bits of the constant into the
+instruction.</p>
+<p>Pick a 16-bit chunk in the constant that is not all bits set and use a <code>MOVN</code>
+to set the chunk, filling all other chunks with ones as well. If no such chunk
+exists, then all bits are set, and a single <code>MOVN</code> finishes the job. Otherwise,
+set other chunks with <code>MOVK</code>.</p>
+<p>If there is even a single 16-bit chunk of ones, the initial <code>MOVN</code> finishes
+setting two chunks or more in one go, beating out the one-chunk-at-a-time
+<code>MOVK</code>. <code>MOVZ</code> fills zeros and <code>MOVN</code> fills ones.</p>
 <p>This strategy is not limited to negative numbers. For example, it sets
 <code>0x7000_ffff_cafe_ffff</code> with just two instructions.</p>
 <h2 id="play-with-it">Play with it!</h2>
@@ -144,7 +144,7 @@ It&rsquo;s made with <a href="https://github.com/capstone-rust/capstone-rs"><cod
 compiled through
 <a href="https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html"><code>wasm32-unknown-emscripten</code></a>.
 It assembles the machine code bytes only to run it through a disassembler as an
-elaborate way of verifying the logic.</p>
+elaborate way of verification.</p>
 
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
 <br>
