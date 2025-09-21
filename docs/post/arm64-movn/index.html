@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer-when-downgrade">
 
-<title>ARM64&#39;s MOVN instruction is clever - Thoughts from Alan</title>
+<title>The clever ARM64 MOVN instruction - Thoughts from Alan</title>
 <meta name="description" content="">
 
 <link rel="icon" type="image/png" href="https://alanwu.space/favicon.png">
@@ -41,7 +41,7 @@
 
 <meta property="og:url" content="https://alanwu.space/post/arm64-movn/">
   <meta property="og:site_name" content="Thoughts from Alan">
-  <meta property="og:title" content="ARM64&#39;s MOVN instruction is clever">
+  <meta property="og:title" content="The clever ARM64 MOVN instruction">
   <meta property="og:description" content="The bit twiddling office called. They want a function to compute a sequence of ARM64 instructions that fills a register with an arbitrary constant 64-bit number.
 Zeros in positive number All ARM64 instructions are 32 bits long, so one instruction can’t possibly handle all 64-bit patterns. One straightforward way to assemble the desired bit pattern is to use MOVK which sets any one of the four 16-bit chunks of the register without touching any other chunks. So, four MOVK instructions can assemble any 64-bit pattern.">
   <meta property="og:locale" content="en_us">
@@ -52,7 +52,7 @@ Zeros in positive number All ARM64 instructions are 32 bits long, so one instruc
 
 
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="ARM64&#39;s MOVN instruction is clever">
+  <meta name="twitter:title" content="The clever ARM64 MOVN instruction">
   <meta name="twitter:description" content="The bit twiddling office called. They want a function to compute a sequence of ARM64 instructions that fills a register with an arbitrary constant 64-bit number.
 Zeros in positive number All ARM64 instructions are 32 bits long, so one instruction can’t possibly handle all 64-bit patterns. One straightforward way to assemble the desired bit pattern is to use MOVK which sets any one of the four 16-bit chunks of the register without touching any other chunks. So, four MOVK instructions can assemble any 64-bit pattern.">
 
@@ -85,7 +85,7 @@ Zeros in positive number All ARM64 instructions are 32 bits long, so one instruc
     
     <article class="post h-entry">
         <header class="post-header">
-            <h1 class="p-name post-title">ARM64&#39;s MOVN instruction is clever</h1>
+            <h1 class="p-name post-title">The clever ARM64 MOVN instruction</h1>
         </header>
         <div class="content e-content">
             <p>The bit twiddling office called. They want a function to compute a sequence of

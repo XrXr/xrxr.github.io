@@ -1,5 +1,5 @@
 +++
-title = "ARM64's MOVN instruction is clever"
+title = "The clever ARM64 MOVN instruction"
 date = 2025-09-16T00:00:01-04:00
 build.publishResources = false
 +++
