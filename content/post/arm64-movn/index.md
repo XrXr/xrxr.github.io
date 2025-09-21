@@ -1,9 +1,8 @@
----
-title: "ARM64's MOVN instruction is clever"
-date: 2025-09-16T00:00:01-04:00
-build:
-  publishResources: false
----
++++
+title = "ARM64's MOVN instruction is clever"
+date = 2025-09-16T00:00:01-04:00
+build.publishResources = false
++++
 
 The bit twiddling office called. They want a function to compute a sequence of
 ARM64 instructions that fills a register with an arbitrary constant 64-bit
@@ -51,32 +50,34 @@ is always zero.
 ## Strategy using `MOVN`
 
 Using `MOVN` and `MOVK` gives a pretty good strategy for negative numbers.
-Sometimes, the whole sequence takes fewer than 64 bits. That's shorter
-than `movabs` from x86-64, which uses a 64-bit immediate.
+Sometimes, the whole sequence takes fewer than 64 bits. That's shorter than
+`movabs` from x86-64, which uses a 64-bit immediate.
 
-For the constant `N`, pick a 16-bit chunk in that is not all bits set and use a
-`MOVN` to set the chunk, filling all other chunks with ones as well. If no such
-chunk exists, then all bits are set, and we're done with a single `MOVN`.
-Otherwise, set other chunks of `N` with `MOVK`.
+Pick a 16-bit chunk in the constant is not all bits set and use a `MOVN` to set
+the chunk, filling all other chunks with ones as well. If no such chunk exists,
+then all bits are set, and a single `MOVN` finishes the job. Otherwise, set
+other chunks with `MOVK`.
 
 If there is even a single 16-bit chunk of ones in `N`, the initial `MOVN`
-finishes setting two chunks or more in one go, beating out only using `MOVK`.
-`MOVZ` covers positive numbers and `MOVN` covers the negatives.
+finishes setting two chunks or more in one go, beating out the
+one-chunk-at-a-time `MOVK`. `MOVZ` covers positive numbers and `MOVN` covers
+the negatives.
 
-This strategy is not limited to negative numbers. For example, it
-sets `0x7000_ffff_cafe_ffff` with just two instructions.
+This strategy is not limited to negative numbers. For example, it sets
+`0x7000_ffff_cafe_ffff` with just two instructions.
 
 ## Play with it!
 
 On a browser with WASM support, there should be an interactive toy below that
-implements the `MOVN` strategy. It only uses `MOVN` and `MOVK`, so
-don't expect the shortest possible sequence for all inputs. (For one, it won't attempt to use
-a [bitmask
+implements the `MOVN` strategy. It only uses `MOVN` and `MOVK`, so don't expect
+the shortest possible sequence for all inputs. (For one, it doesn't attempt to
+use a [bitmask
 immediate](https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/).)
 It's made with [`capstone-rs`](https://github.com/capstone-rust/capstone-rs)
 compiled through
 [`wasm32-unknown-emscripten`](https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html).
-Please excuse the huge 3MB download size -- I made no effort minimizing it.
+It assembles the machine code bytes only to run it through a disassembler as an
+elaborate way of verifying the logic.
 
 {{<html>}}
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
@@ -131,5 +132,7 @@ Please excuse the huge 3MB download size -- I made no effort minimizing it.
         }
     }
 </script>
-<script src="/arm64_movn.js" defer></script>
 {{</html>}}
+
+{{<publish-resource "arm64_movn.wasm">}}
+{{<page-bundle-js   "arm64_movn.js">}}

@@ -122,27 +122,29 @@ encoded as all bits ones. Start with a single one and add leading ones.</p>
 numbers. <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 <h2 id="strategy-using-movn">Strategy using <code>MOVN</code></h2>
 <p>Using <code>MOVN</code> and <code>MOVK</code> gives a pretty good strategy for negative numbers.
-Sometimes, the whole sequence takes fewer than 64 bits. That&rsquo;s shorter
-than <code>movabs</code> from x86-64, which uses a 64-bit immediate.</p>
-<p>For the constant <code>N</code>, pick a 16-bit chunk in that is not all bits set and use a
-<code>MOVN</code> to set the chunk, filling all other chunks with ones as well. If no such
-chunk exists, then all bits are set, and we&rsquo;re done with a single <code>MOVN</code>.
-Otherwise, set other chunks of <code>N</code> with <code>MOVK</code>.</p>
+Sometimes, the whole sequence takes fewer than 64 bits. That&rsquo;s shorter than
+<code>movabs</code> from x86-64, which uses a 64-bit immediate.</p>
+<p>Pick a 16-bit chunk in the constant is not all bits set and use a <code>MOVN</code> to set
+the chunk, filling all other chunks with ones as well. If no such chunk exists,
+then all bits are set, and a single <code>MOVN</code> finishes the job. Otherwise, set
+other chunks with <code>MOVK</code>.</p>
 <p>If there is even a single 16-bit chunk of ones in <code>N</code>, the initial <code>MOVN</code>
-finishes setting two chunks or more in one go, beating out only using <code>MOVK</code>.
-<code>MOVZ</code> covers positive numbers and <code>MOVN</code> covers the negatives.</p>
-<p>This strategy is not limited to negative numbers. For example, it
-sets <code>0x7000_ffff_cafe_ffff</code> with just two instructions.</p>
+finishes setting two chunks or more in one go, beating out the
+one-chunk-at-a-time <code>MOVK</code>. <code>MOVZ</code> covers positive numbers and <code>MOVN</code> covers
+the negatives.</p>
+<p>This strategy is not limited to negative numbers. For example, it sets
+<code>0x7000_ffff_cafe_ffff</code> with just two instructions.</p>
 <h2 id="play-with-it">Play with it!</h2>
 <p>On a browser with WASM support, there should be an interactive toy below that
-implements the <code>MOVN</code> strategy. It only uses <code>MOVN</code> and <code>MOVK</code>, so
-don&rsquo;t expect the shortest possible sequence for all inputs. (For one, it won&rsquo;t attempt to use
-a <a href="https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/">bitmask
+implements the <code>MOVN</code> strategy. It only uses <code>MOVN</code> and <code>MOVK</code>, so don&rsquo;t expect
+the shortest possible sequence for all inputs. (For one, it doesn&rsquo;t attempt to
+use a <a href="https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/">bitmask
 immediate</a>.)
 It&rsquo;s made with <a href="https://github.com/capstone-rust/capstone-rs"><code>capstone-rs</code></a>
 compiled through
 <a href="https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html"><code>wasm32-unknown-emscripten</code></a>.
-Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.</p>
+It assembles the machine code bytes only to run it through a disassembler as an
+elaborate way of verifying the logic.</p>
 
 <input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
 <br>
@@ -196,9 +198,18 @@ Please excuse the huge 3MB download size &ndash; I made no effort minimizing it.
         }
     }
 </script>
-<script src="/arm64_movn.js" defer></script>
 
 
+<p>
+
+  
+
+
+
+
+<script src="/post/arm64-movn/arm64_movn.js" defer></script>
+
+</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

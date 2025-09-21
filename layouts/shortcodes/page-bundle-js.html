@@ -1,0 +1,7 @@
+{{/*
+https://gohugo.io/content-management/page-bundles/
+https://gohugo.io/methods/shortcode/
+*/}}
+{{ with .Get 0 | .Page.Resources.Get }}
+<script src="{{ .RelPermalink }}" defer></script>
+{{ end }}

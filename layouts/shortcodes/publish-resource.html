@@ -1,0 +1,8 @@
+{{/*
+Only relevant when `build.publishResources = false`
+https://gohugo.io/methods/resource/publish/
+https://gohugo.io/methods/shortcode/
+*/}}
+{{ with .Get 0 | .Page.Resources.Get }}
+  {{ .Publish }}
+{{ end }}

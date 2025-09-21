@@ -51,27 +51,29 @@ encoded as all bits ones. Start with a single one and add leading ones.&lt;/p&gt
 numbers. &lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;h2 id=&#34;strategy-using-movn&#34;&gt;Strategy using &lt;code&gt;MOVN&lt;/code&gt;&lt;/h2&gt;
 &lt;p&gt;Using &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt; gives a pretty good strategy for negative numbers.
-Sometimes, the whole sequence takes fewer than 64 bits. That&amp;rsquo;s shorter
-than &lt;code&gt;movabs&lt;/code&gt; from x86-64, which uses a 64-bit immediate.&lt;/p&gt;
-&lt;p&gt;For the constant &lt;code&gt;N&lt;/code&gt;, pick a 16-bit chunk in that is not all bits set and use a
-&lt;code&gt;MOVN&lt;/code&gt; to set the chunk, filling all other chunks with ones as well. If no such
-chunk exists, then all bits are set, and we&amp;rsquo;re done with a single &lt;code&gt;MOVN&lt;/code&gt;.
-Otherwise, set other chunks of &lt;code&gt;N&lt;/code&gt; with &lt;code&gt;MOVK&lt;/code&gt;.&lt;/p&gt;
+Sometimes, the whole sequence takes fewer than 64 bits. That&amp;rsquo;s shorter than
+&lt;code&gt;movabs&lt;/code&gt; from x86-64, which uses a 64-bit immediate.&lt;/p&gt;
+&lt;p&gt;Pick a 16-bit chunk in the constant is not all bits set and use a &lt;code&gt;MOVN&lt;/code&gt; to set
+the chunk, filling all other chunks with ones as well. If no such chunk exists,
+then all bits are set, and a single &lt;code&gt;MOVN&lt;/code&gt; finishes the job. Otherwise, set
+other chunks with &lt;code&gt;MOVK&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;If there is even a single 16-bit chunk of ones in &lt;code&gt;N&lt;/code&gt;, the initial &lt;code&gt;MOVN&lt;/code&gt;
-finishes setting two chunks or more in one go, beating out only using &lt;code&gt;MOVK&lt;/code&gt;.
-&lt;code&gt;MOVZ&lt;/code&gt; covers positive numbers and &lt;code&gt;MOVN&lt;/code&gt; covers the negatives.&lt;/p&gt;
-&lt;p&gt;This strategy is not limited to negative numbers. For example, it
-sets &lt;code&gt;0x7000_ffff_cafe_ffff&lt;/code&gt; with just two instructions.&lt;/p&gt;
+finishes setting two chunks or more in one go, beating out the
+one-chunk-at-a-time &lt;code&gt;MOVK&lt;/code&gt;. &lt;code&gt;MOVZ&lt;/code&gt; covers positive numbers and &lt;code&gt;MOVN&lt;/code&gt; covers
+the negatives.&lt;/p&gt;
+&lt;p&gt;This strategy is not limited to negative numbers. For example, it sets
+&lt;code&gt;0x7000_ffff_cafe_ffff&lt;/code&gt; with just two instructions.&lt;/p&gt;
 &lt;h2 id=&#34;play-with-it&#34;&gt;Play with it!&lt;/h2&gt;
 &lt;p&gt;On a browser with WASM support, there should be an interactive toy below that
-implements the &lt;code&gt;MOVN&lt;/code&gt; strategy. It only uses &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt;, so
-don&amp;rsquo;t expect the shortest possible sequence for all inputs. (For one, it won&amp;rsquo;t attempt to use
-a &lt;a href=&#34;https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/&#34;&gt;bitmask
+implements the &lt;code&gt;MOVN&lt;/code&gt; strategy. It only uses &lt;code&gt;MOVN&lt;/code&gt; and &lt;code&gt;MOVK&lt;/code&gt;, so don&amp;rsquo;t expect
+the shortest possible sequence for all inputs. (For one, it doesn&amp;rsquo;t attempt to
+use a &lt;a href=&#34;https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/&#34;&gt;bitmask
 immediate&lt;/a&gt;.)
 It&amp;rsquo;s made with &lt;a href=&#34;https://github.com/capstone-rust/capstone-rs&#34;&gt;&lt;code&gt;capstone-rs&lt;/code&gt;&lt;/a&gt;
 compiled through
 &lt;a href=&#34;https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html&#34;&gt;&lt;code&gt;wasm32-unknown-emscripten&lt;/code&gt;&lt;/a&gt;.
-Please excuse the huge 3MB download size &amp;ndash; I made no effort minimizing it.&lt;/p&gt;
+It assembles the machine code bytes only to run it through a disassembler as an
+elaborate way of verifying the logic.&lt;/p&gt;
 
 &lt;input type=&#34;text&#34; id=&#34;constantInput&#34; value=&#34;0x7000_ffff_cafe_ffff&#34;&gt;&lt;/input&gt;
 &lt;br&gt;
@@ -125,9 +127,18 @@ Please excuse the huge 3MB download size &amp;ndash; I made no effort minimizing
         }
     }
 &lt;/script&gt;
-&lt;script src=&#34;https://alanwu.space/arm64_movn.js&#34; defer&gt;&lt;/script&gt;
 
 
+&lt;p&gt;
+
+  
+
+
+
+
+&lt;script src=&#34;https://alanwu.space/post/arm64-movn/arm64_movn.js&#34; defer&gt;&lt;/script&gt;
+
+&lt;/p&gt;
 &lt;div class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
 &lt;hr&gt;
 &lt;ol&gt;
