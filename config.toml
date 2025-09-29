@@ -4,6 +4,7 @@ theme = "anubis"
 title = "Thoughts from Alan"
 publishDir = "docs"
 cleanDestinationDir = true
+disableKinds = [ "section" ]
 
 [markup.highlight]
 style = "modus-vivendi"

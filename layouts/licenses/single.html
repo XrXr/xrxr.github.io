@@ -1,0 +1,23 @@
+{{/* ughh hugo serve doesn't auto reload properly when licenses.toml changes */}}
+{{ define "main" }}
+<style> pre { max-height: 10lh; } </style>
+{{.Content}}
+{{ range $k, $license := .Resources.Get "licenses.toml" | unmarshal }}
+    {{if ne $k "licenses"}}
+        {{continue}}
+    {{end}}
+    {{range $license}}
+        <h2>For
+            {{ range .used_by }}
+                {{- if .crate.repository }}
+                  <a href="{{.crate.repository}}">{{- .crate.name}}</a>
+                {{ else }}
+                    {{- .crate.name}}
+                {{ end }}
+                {{if .crate.version }}version {{.crate.version}} {{end}}
+            {{- end -}}
+        </h2>
+        {{ transform.Highlight .text "text" }}
+    {{end}}
+{{end}}
+{{ end }}

@@ -75,7 +75,7 @@ use a [bitmask
 immediate](https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/).)
 It's made with [`capstone-rs`](https://github.com/capstone-rust/capstone-rs)
 compiled through
-[`wasm32-unknown-emscripten`](https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html).
+[`wasm32-unknown-emscripten`](https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-emscripten.html).[^licenses]
 It assembles the machine code bytes only to run it through a disassembler as an
 elaborate way of verification.
 
@@ -136,3 +136,5 @@ elaborate way of verification.
 
 {{<publish-resource "arm64_movn.wasm">}}
 {{<page-bundle-js   "arm64_movn.js">}}
+
+[^licenses]: Open-source [licenses](licenses)
