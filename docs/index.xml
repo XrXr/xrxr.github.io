@@ -75,9 +75,8 @@ compiled through
 It assembles the machine code bytes only to run it through a disassembler as an
 elaborate way of verification.&lt;/p&gt;
 
-&lt;input type=&#34;text&#34; id=&#34;constantInput&#34; value=&#34;0x7000_ffff_cafe_ffff&#34;&gt;&lt;/input&gt;
-&lt;br&gt;
-&lt;pre id=&#34;disasmOutput&#34;&gt;&lt;/pre&gt;
+&lt;input type=&#34;text&#34; id=&#34;constantInput&#34; name=&#34;constantInput&#34; value=&#34;0x7000_ffff_cafe_ffff&#34;&gt;&lt;/input&gt;
+&lt;output for=&#34;constantInput&#34;&gt;&lt;pre id=&#34;disasmOutput&#34;&gt;&lt;/pre&gt;&lt;/output&gt;
 &lt;script&gt;
     Module = {
         noExitRuntime: true,

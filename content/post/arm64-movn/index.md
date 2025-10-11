@@ -80,9 +80,8 @@ It assembles the machine code bytes only to run it through a disassembler as an
 elaborate way of verification.
 
 {{<html>}}
-<input type="text" id="constantInput" value="0x7000_ffff_cafe_ffff"></input>
-<br>
-<pre id="disasmOutput"></pre>
+<input type="text" id="constantInput" name="constantInput" value="0x7000_ffff_cafe_ffff"></input>
+<output for="constantInput"><pre id="disasmOutput"></pre></output>
 <script>
     Module = {
         noExitRuntime: true,
