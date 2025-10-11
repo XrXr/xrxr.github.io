@@ -1,0 +1,7 @@
+{{ define "main" }}
+  <header class="title-box">
+  <h1>{{ .Title }}</h1>
+  <span class="post-date">{{ time.Format "2006 Jan 2" .PublishDate}}</span>
+  </header>
+  {{ .Content }}
+{{ end }}

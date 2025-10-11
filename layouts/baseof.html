@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.Language.Locale }}">
+<head>
+    {{/* CSS bundling logic */}}
+    {{/* Note: Tried resources.Concat, something funky with mixing the types of resources
+    makes it not miss part of the file. Just put a style tag for each file. */}}
+    {{ $css_resources := .Resources.Match "*.css" | append (resources.Match "css/*.css") }}
+    {{- range $css_resources }}
+      <style>{{(. | resources.Minify).Content | safeCSS}}</style>
+    {{- end }}
+</head>
+<body>
+    <a class="skip-main" href="#main">{{ i18n "skipToContent" | humanize }}</a>
+    <header class="top-header">
+        <a class="go-home" href={{ .Ref (dict "path" "/")}}>{{ .Site.Title }}</a>
+    </header>
+    <main id="main" tabindex="-1">
+        <article>{{ block "main" . }}{{ end }}</article>
+    </main>
+    <footer class="top-footer"></footer>
+</body>
+</html>

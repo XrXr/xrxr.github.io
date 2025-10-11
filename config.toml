@@ -1,6 +1,5 @@
 baseURL = "https://alanwu.space/"
-languageCode = "en-us"
-theme = "anubis"
+locale = "en-us"
 title = "Thoughts from Alan"
 publishDir = "docs"
 cleanDestinationDir = true
