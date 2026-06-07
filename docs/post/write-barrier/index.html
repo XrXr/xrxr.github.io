@@ -1,92 +1,35 @@
 <!DOCTYPE html>
-
-
-
-<html lang="en-us" data-theme="">
+<html lang="en-us">
 <head>
     
-        
-<meta charset="utf-8">
-<meta name="HandheldFriendly" content="True">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="referrer" content="no-referrer-when-downgrade">
-
-<title>Write barriers and an old Ruby bug - Thoughts from Alan</title>
-<meta name="description" content="">
-
-<link rel="icon" type="image/png" href="https://alanwu.space/favicon.png">
-<link rel="apple-touch-icon-precomposed" href="https://alanwu.space/favicon.png">
-
-
-
-
-
-
-  <style>:root{--font-color:#333;--bg-color:#fff;--link-color:#1d60a3;--link-state-color:#a31d1d;--link-state-border-color:rgba(163, 29, 29, .5);--thead-bg-color:lightgrey;--table-border-color:lightgrey;--pre-color:#333;--pre-bg-color:#f1f1f1;--bq-color:#ccc;--hr-color:#ccc;--pagination-bg-color:#fafafa;--pagination-link-color:#696969;--post-info-color:grey;--switcher-color:#fff;--switcher-bg-color:#333}@media(prefers-color-scheme:dark){:root{--font-color:#eee;--bg-color:#212121;--link-color:#599ada;--link-state-color:#ff5858;--link-state-border-color:rgba(238, 54, 54, 0.5);--thead-bg-color:#343a40;--table-border-color:lightgrey;--pre-color:#333;--pre-bg-color:#f1f1f1;--bq-color:#ccc;--hr-color:#333;--pagination-bg-color:#373737;--pagination-link-color:#b6b6b6;--post-info-color:grey;--switcher-color:#333;--switcher-bg-color:#fff}}html{font-family:-apple-system,BlinkMacSystemFont,segoe ui,Roboto,helvetica neue,Arial,noto sans,sans-serif,apple color emoji,segoe ui emoji,segoe ui symbol,noto color emoji;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0;font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased;color:var(--font-color);background:var(--bg-color)}article,aside,details,figcaption,figure,footer,header,hgroup,main,menu,nav,section,summary{display:block}.container{max-width:42em;margin:0 auto}main{outline:none}h1{font-size:1.35em}h2{font-size:1.2em}h3{font-size:1.1em}a{color:var(--link-color);text-decoration:none}a:hover,a:focus,a:active{color:var(--link-state-color);border-bottom:1px solid var(--link-state-border-color)}a:active,a:hover{outline:0}a:active{opacity:.9}a.skip-main{left:-999px;position:absolute;top:auto;width:1px;height:1px;overflow:hidden;z-index:-999}a.skip-main:focus,a.skip-main:active{left:auto;top:0;width:auto;height:auto;overflow:auto;z-index:999;padding:4px 6px;text-decoration:underline;border:none}thead{background:var(--thead-bg-color)}.table-wrapper{overflow-x:auto}table{max-width:100%;border-spacing:0}th,td{padding:.5em 1em;border:1px double var(--table-border-color)}pre{color:var(--pre-color);background-color:var(--pre-bg-color);padding:1em;max-width:100%;overflow:auto}code,pre,kbd{font-family:monospace;font-size:.9em;line-height:154%}blockquote{border-left:2px solid var(--bq-color);padding:.1em 1em;margin:.5em}p{margin-top:.5em;margin-bottom:.5em}hr{color:var(--hr-color);background-color:var(--hr-color);border:none;height:1px}header{display:flex;justify-content:space-between}header a{color:var(--font-color)}header h1{font-size:1em;margin-top:1em;margin-bottom:0;font-weight:400}header h2{font-size:1em;margin:0;font-weight:400}header nav{margin-top:1em;max-width:100%;text-align:right}header nav a{margin-left:2em}.site-title{white-space:nowrap}.common-header{padding-bottom:1.5em;border-bottom:thin solid var(--hr-color)}main h1{margin-top:1em;font-weight:400;line-height:1.1em;margin-bottom:.5em;font-weight:600}.post-short-list:first-of-type{margin-top:1em}.post-navigation{background:var(--pagination-bg-color);text-align:center;margin-top:1em;max-width:100%;padding:.5em 0}.post-navigation a:first-of-type{margin-left:0}.post-navigation a{color:var(--pagination-link-color);margin-left:2em}.post-navigation a:hover,.post-navigation a:focus,.post-navigation a:active{color:var(--link-state-color)}.post-title.favorite::after{content:"☆";display:inline-block;margin-left:.2em}.post-title.draft::after{content:"✎";display:inline-block;margin-left:.2em}.post-title.favorite.draft::after{content:"☆ ✎";display:inline-block;margin-left:.2em}article:not(:last-of-type){border-bottom:thin solid var(--hr-color);padding-bottom:2em}article header h1{font-size:1.35em;line-height:1.1em;margin-bottom:.5em;font-weight:600}article header h1 a{color:var(--font-color);border:none;text-decoration:none}.post-info{color:var(--post-info-color);font-size:.75em;margin-top:1em}.post-info a{color:var(--post-info-color)}.post-info a:hover{color:var(--link-state-color)}.post-short-list .post-info{margin-top:0;margin-bottom:1.5em}.post-taxonomies{display:inline}.post-hidden-url{display:none}.post-hidden-author{display:none}.post-date{white-space:nowrap}.post-categories{display:inline;list-style-type:none;padding:0}.post-categories li{display:inline;margin-right:1em}.post-tags{display:inline;list-style-type:none;padding:0;margin:0}.post-tags li{display:inline;margin-right:1em}article img{max-width:100%;display:block;height:auto;margin:0 auto .5em}article figcaption{color:grey;text-align:center;font-size:.85em;margin-bottom:2em}.read-more{margin:1em 0}.divider{border-top:thin solid var(--hr-color);display:block;height:1px;border:0;width:25%;margin:1em auto}.post-summary{margin-top:.5em;display:block}.post-summary>p{display:block}.terms{list-style-type:none;padding:0;line-height:2em}.pagination{display:flex;justify-content:space-between;margin-top:3em;text-align:center}.pagination-item{background:var(--pagination-bg-color);padding:.75em}.pagination-item a{color:var(--pagination-link-color)}.pagination-item a:hover,.pagination-item a:focus{color:var(--link-state-color)}.disabled{visibility:hidden}.pagination-item a:hover,.pagination-item a:focus{border-bottom:0}.post-pagination .pagination-item{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:16em}.common-footer{border-top:thin solid var(--hr-color);padding-top:1.5em;margin-top:3em;font-size:16px}.common-footer-bottom{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between}ul.language-select,ul.footer-menu{padding-left:0;list-style:none;display:flex}ul.language-select>li,ul.footer-menu>li{margin-right:1em}.theme-switcher{color:var(--switcher-color);background:var(--switcher-bg-color);padding:.5em 1em;font-size:16px;border:none;margin-bottom:1em}.h-card{display:none}@media(max-width:840px){.main-wrapper{margin:0;max-width:none;overflow-x:hidden;padding-left:25px;padding-right:25px}.container{max-width:90%;margin:0 auto}.pagination-item{padding:.5em;font-size:14px}header{display:block}.site-header{text-align:center}header nav:not(:empty){background:var(--pagination-bg-color);margin-top:1em;max-width:100%;text-align:center;padding:.5em 0}header nav a{display:inline-block;margin:0 2.5%}.post-navigation{background:var(--pagination-bg-color);text-align:center;padding:.5em 0}.post-navigation a{margin-left:.5em}.post-pagination .pagination-item{max-width:10em}}</style>
-  <style>article{text-align:justify;word-break:auto-phrase}h1,h2,h3,h4,h5,h6{text-align:initial}</style>
-
-
-
-<meta property="og:url" content="https://alanwu.space/post/write-barrier/">
-  <meta property="og:site_name" content="Thoughts from Alan">
-  <meta property="og:title" content="Write barriers and an old Ruby bug">
-  <meta property="og:description" content="Learn about the role write barriers play in garbage collection algorithms through CRuby’s implementation and example animations.">
-  <meta property="og:locale" content="en_us">
-  <meta property="og:type" content="article">
-    <meta property="article:section" content="post">
-    <meta property="article:published_time" content="2021-07-22T06:27:34-04:00">
-    <meta property="article:modified_time" content="2021-07-22T06:27:34-04:00">
-
-
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Write barriers and an old Ruby bug">
-  <meta name="twitter:description" content="Learn about the role write barriers play in garbage collection algorithms through CRuby’s implementation and example animations.">
-
-
-
-
-
-
-
     
+    
+      <style>:root{--font-color:#eee;--bg-color:#212121;--link-color:#599ada;--link-hover-color:#ff5858;--thead-bg-color:#343a40;--table-border-color:lightgrey;--bq-color:#ccc;--hr-color:#333;--column-max-width:50em}html{font-size:18px}body{font-family:Seravek,gill sans nova,Ubuntu,Calibri,dejavu sans,source-sans-pro,sans-serif;padding:0 1em;background-color:var(--bg-color);color:var(--font-color);display:flex;flex-direction:column;align-items:stretch}main{display:flex;justify-content:center}article{max-width:var(--column-max-width);min-width:0;text-align:justify;word-break:auto-phrase}code{font-family:ui-monospace,cascadia code,source code pro,Menlo,Consolas,dejavu sans mono,monospace;font-weight:400;font-size:85%}h1,h2,h3,h4,h5,h6{text-align:initial;margin:.3lh 0}hr{color:var(--hr-color)}a{color:var(--link-color);text-decoration:none}a:focus,a:hover{color:var(--link-hover-color)}.go-home,.go-home:focus,.go-home:hover{color:unset}.title-box{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:.75lh 0;margin-bottom:1.5lh;column-gap:2em}.top-header>hr{width:var(--column-max-width)}.title-box>h1{margin:0;font-size:1.7rem}.post-date{height:1lh}pre{padding:.5em 1em;overflow:scroll}</style>
 </head>
 <body>
-    <a class="skip-main" href="#main">Skip to main content</a>
-    <div class="container">
-        <header class="common-header"> 
-            
-                <h1 class="site-title">
-    <a href="/">Thoughts from Alan</a>
-</h1>
-
-    <nav></nav>
-
-
-
-            
-        </header>
-        <main id="main" tabindex="-1"> 
-            
-    
-    
-    <article class="post h-entry">
-        <header class="post-header">
-            <h1 class="p-name post-title">Write barriers and an old Ruby bug</h1>
-        </header>
-        <div class="content e-content">
-            <p>Here is a program that crashes Ruby 2.7.0:</p>
-<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
+    <a class="skip-main" href="#main"></a>
+    <header class="top-header">
+        <a class="go-home" href=https://alanwu.space/>Thoughts from Alan</a>
+    </header>
+    <main id="main" tabindex="-1">
+        <article>
+  <header class="title-box">
+  <h1>Write barriers and an old Ruby bug</h1>
+  <span class="post-date">2021 Jul 22</span>
+  </header>
+  <p>Here is a program that crashes Ruby 2.7.0:</p>
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
 </span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
 </span></span><span style="display:flex;"><span><span style="color:#f78fe7">hash</span><span style="color:#00d3d0">.</span>transform_values!{ Object<span style="color:#00d3d0">.</span>new }
 </span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start(<span style="color:#79a8ff">full_mark</span>: <span style="color:#b6a0ff">false</span>)
 </span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
 </span></span></code></pre></div><p>The crash message is scary and subtly hints at the presence of a bug:</p>
-<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>[BUG] try to mark T_NONE object
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>[BUG] try to mark T_NONE object
 </span></span></code></pre></div><p>In this post, I will explain the reason behind the crash and suggest some ways to avoid similar issues in the future.</p>
 <h2 id="is-it-a-bug-in-the-garbage-collector">Is it a bug in the garbage collector?</h2>
 <p>Since the program crashes without the help of third party C extensions and crashes even when Ruby is launched with <code>--disable-gems</code>, it&rsquo;s clear that the problem is in the Ruby runtime. Looking at the C stack trace, we can see that <code>gc.c</code> initiates the crash. How can we prove beyond a reasonable doubt that the GC itself is guilty of this crash? It turns out, there is a method, <code>GC.verify_internal_consistency</code> that can help us out.</p>
 <p>Adding a call to this method right after the call to <code>transform_values!</code> in our reproducer, we get a different message:</p>
-<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>verify_internal_consistency_reachable_i: WB miss (O-&gt;Y) T_HASH -&gt; T_OBJECT
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>verify_internal_consistency_reachable_i: WB miss (O-&gt;Y) T_HASH -&gt; T_OBJECT
 </span></span><span style="display:flex;"><span>crash.rb:4: [BUG] gc_verify_internal_consistency: found internal inconsistency.
 </span></span></code></pre></div><p>Okay, it looks like some invariant that the GC cares about is not upheld, but what is a &ldquo;WB miss&rdquo;?</p>
 <h2 id="incremental-mark-and-sweep">Incremental mark and sweep</h2>
@@ -1374,7 +1317,7 @@
 <p>There are many garbage collected languages that ship with compilers that can automatically insert write barriers. CRuby does not have that luxury, however, and it is up to the developers to manually insert write barriers where necessary. In this particular case a write barrier was present but erroneously removed.</p>
 <h2 id="consequences">Consequences</h2>
 <p>Missing write barriers can make the GC collect live objects and lead to <a href="https://en.wikipedia.org/w/index.php?title=Use_after_free">use-after-free</a>. This can lead to crashes like we have seen, or worse, silent data corruption. The following program demonstrates data corruption:</p>
-<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
+<div class="highlight"><pre tabindex="0" style="color:#fff;background-color:#000;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ruby" data-lang="ruby"><span style="display:flex;"><span><span style="color:#f78fe7">hash</span> <span style="color:#00d3d0">=</span> { <span style="color:#79a8ff">a</span>: Object<span style="color:#00d3d0">.</span>new }
 </span></span><span style="display:flex;"><span>GC<span style="color:#00d3d0">.</span>start
 </span></span><span style="display:flex;"><span><span style="color:#f78fe7">hash</span><span style="color:#00d3d0">.</span>transform_values!{ <span style="color:#00bcff">2</span> <span style="color:#00d3d0">**</span> <span style="color:#00bcff">99</span> }
 </span></span><span style="display:flex;"><span><span style="color:#f78fe7">p</span> <span style="color:#f78fe7">hash</span>
@@ -1391,7 +1334,8 @@
 <h2 id="possible-ways-to-prevent-this-in-the-future">Possible ways to prevent this in the future</h2>
 <p>To quote Koichi Sasada in a <a href="https://www.atdot.net/~ko1/activities/rgengc_ismm.pdf">paper</a> about CRuby&rsquo;s write barriers:</p>
 <blockquote>
-<p>In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.</p></blockquote>
+<p>In general, inserting WBs correctly is a difficult and time-consuming task because WB-related bugs cause critical issues and it is difficult to debug them.</p>
+</blockquote>
 <p>Indeed, write barrier bugs can be very elusive. I certainly don&rsquo;t put it past myself to accidentally introduce one. They are hard to spot by testing. To illustrate, try removing or changing lines that start with <code>GC</code> in the reproducer &ndash; a lot of the time the program doesn&rsquo;t crash and appears to work correctly.</p>
 <p>I&rsquo;m going to suggest some ways that can make forgetting to insert and/or accidentally removing write barriers more difficult.</p>
 <h3 id="education-and-code-reviews">Education and code reviews</h3>
@@ -1416,33 +1360,8 @@
 </ol>
 </div>
 
-        </div>
-        
-
-
-<div class="post-info">
-    
-        <div class="post-date dt-published">2021-07-22</div>
-    
-    
-    <a class="post-hidden-url u-url" href="https://alanwu.space/post/write-barrier/">https://alanwu.space/post/write-barrier/</a>
-    <div class="post-hidden-author p-author"></div>
-
-    <div class="post-taxonomies">
-        
-            
-    </div>
-</div>
-
-    </article>
-
-    
-
-    
-
-
-        </main>
-        <footer class="common-footer"></footer>
-    </div>
+</article>
+    </main>
+    <footer class="top-footer"></footer>
 </body>
 </html>
