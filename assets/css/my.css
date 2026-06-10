@@ -89,5 +89,5 @@ a:focus, a:hover {
 
 pre {
     padding: .5em 1em;
-    overflow: scroll;
+    overflow: auto;
 }
